@@ -4,6 +4,7 @@ import { LoginDto } from '../../application/dto/login.dto';
 import { RegisterUseCase } from '../../application/use-cases/register.usecase';
 import { LoginUseCase } from '../../application/use-cases/login.usecase';
 import { GetMeUseCase } from '../../application/use-cases/get-me.usecase';
+import { RefreshTokenUseCase } from '../../application/use-cases/refresh-token.usecase';
 
 export class AuthController {
   public readonly router: Router;
@@ -11,12 +12,14 @@ export class AuthController {
   constructor(
     private readonly registerUseCase: RegisterUseCase,
     private readonly loginUseCase: LoginUseCase,
-    private readonly getMeUseCase: GetMeUseCase
+    private readonly getMeUseCase: GetMeUseCase,
+    private readonly refreshTokenUseCase: RefreshTokenUseCase
   ) {
     this.router = Router();
     this.router.post('/register', this.register);
     this.router.post('/login', this.login);
     this.router.get('/me', this.me);
+    this.router.post('/refresh', this.refresh);
   }
 
   private register = async (req: Request, res: Response, next: NextFunction) => {
@@ -57,10 +60,26 @@ export class AuthController {
     }
   };
 
+  private refresh = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const refreshToken = req.body?.refreshToken as string | undefined;
+      if (!refreshToken) {
+        res.status(400).json({ message: 'Missing refreshToken' });
+        return;
+      }
+      console.log('[AUTH][REFRESH] token received');
+      const result = await this.refreshTokenUseCase.execute(refreshToken);
+      res.json(result);
+    } catch (err) {
+      this.handleError(err, res, next);
+    }
+  };
+
   private handleError(err: any, res: Response, next: NextFunction) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     let status = 400;
     if (/invalid credentials/i.test(message)) status = 401;
+    if (/refresh token/i.test(message)) status = 401;
     if (/already in use/i.test(message)) status = 409;
     if (/not found/i.test(message)) status = 404;
     console.error('[AUTH][ERROR]', message);

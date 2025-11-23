@@ -12,4 +12,6 @@ model User {
   email        String   @unique
   passwordHash String
   createdAt    DateTime @default(now())
+  refreshToken String?  @unique
+  refreshTokenExpiresAt DateTime?
 }

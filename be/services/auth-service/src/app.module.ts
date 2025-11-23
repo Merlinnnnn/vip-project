@@ -4,6 +4,7 @@ import { AuthController } from './interfaces/rest/auth.controller';
 import { RegisterUseCase } from './application/use-cases/register.usecase';
 import { LoginUseCase } from './application/use-cases/login.usecase';
 import { GetMeUseCase } from './application/use-cases/get-me.usecase';
+import { RefreshTokenUseCase } from './application/use-cases/refresh-token.usecase';
 import { UserDomainService } from './domain/services/user-domain.service';
 import { PasswordHasher } from './infrastructure/security/password-hasher';
 import { JwtProvider } from './infrastructure/security/jwt-provider';
@@ -34,8 +35,14 @@ export function createApp() {
   );
   const loginUseCase = new LoginUseCase(userRepository, passwordHasher, jwtProvider);
   const getMeUseCase = new GetMeUseCase(userRepository);
+  const refreshTokenUseCase = new RefreshTokenUseCase(userRepository, jwtProvider);
 
-  const authController = new AuthController(registerUseCase, loginUseCase, getMeUseCase);
+  const authController = new AuthController(
+    registerUseCase,
+    loginUseCase,
+    getMeUseCase,
+    refreshTokenUseCase
+  );
   app.use('/api/auth', authController.router);
 
   app.get('/health', (_req, res) => res.json({ status: 'ok' }));

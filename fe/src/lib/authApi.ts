@@ -1,9 +1,6 @@
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000/api";
+import type { AuthResponse } from "../types/auth";
 
-type AuthResponse = {
-  accessToken: string;
-  user: { id: string; email: string };
-};
+const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000/api";
 
 async function request<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
   const res = await fetch(input, init);
@@ -37,5 +34,13 @@ export async function register(
 export async function getMe(userId: string): Promise<{ id: string; email: string }> {
   return request<{ id: string; email: string }>(`${API_URL}/auth/me`, {
     headers: { "x-user-id": userId },
+  });
+}
+
+export async function refresh(refreshToken: string): Promise<AuthResponse> {
+  return request<AuthResponse>(`${API_URL}/auth/refresh`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ refreshToken }),
   });
 }

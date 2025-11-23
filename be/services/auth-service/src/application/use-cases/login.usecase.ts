@@ -22,7 +22,12 @@ export class LoginUseCase {
       throw new Error('Invalid credentials');
     }
 
+    const refresh = this.jwtProvider.generateRefreshToken();
+    user.refreshToken = refresh.token;
+    user.refreshTokenExpiresAt = refresh.expiresAt;
+    await this.userRepository.update(user);
+
     const accessToken = this.jwtProvider.sign({ sub: user.id, email: user.email });
-    return new AuthResponseDto(accessToken, { id: user.id, email: user.email });
+    return new AuthResponseDto(accessToken, refresh.token, { id: user.id, email: user.email });
   }
 }

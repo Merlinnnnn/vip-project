@@ -20,11 +20,12 @@ export class RegisterUseCase {
     this.userDomainService.ensureEmailAvailable(existing, dto.email);
 
     const passwordHash = await this.passwordHasher.hash(dto.password);
+    const refresh = this.jwtProvider.generateRefreshToken();
     const user = await this.userRepository.create(
-      new User(randomUUID(), dto.email, passwordHash)
+      new User(randomUUID(), dto.email, passwordHash, new Date(), refresh.token, refresh.expiresAt)
     );
 
     const accessToken = this.jwtProvider.sign({ sub: user.id, email: user.email });
-    return new AuthResponseDto(accessToken, { id: user.id, email: user.email });
+    return new AuthResponseDto(accessToken, refresh.token, { id: user.id, email: user.email });
   }
 }
