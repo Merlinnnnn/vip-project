@@ -2,6 +2,7 @@ import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import MainLayout from "../layouts/MainLayout";
 import DashboardPage from "../pages/Dashboard/DashboardPage";
 import LoginPage from "../pages/Login/LoginPage";
+import RegisterPage from "../pages/Register/RegisterPage";
 import SettingsPage from "../pages/Settings/SettingsPage";
 import SkillsPage from "../pages/Skills/SkillsPage";
 import TasksPage from "../pages/Tasks/TasksPage";
@@ -29,6 +30,7 @@ const AppRoutes = () => {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/register" element={<RegisterPage />} />
       <Route element={<ProtectedShell />}>
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<DashboardPage />} />

@@ -3,11 +3,12 @@ import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../routes/AuthContext";
 
-const LoginPage = () => {
+const RegisterPage = () => {
   const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const { login, isAuthenticated } = useAuth();
+  const { register, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const from = (location.state as { from?: { pathname?: string } })?.from?.pathname;
@@ -21,9 +22,9 @@ const LoginPage = () => {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
-    const ok = await login(email, password);
+    const ok = await register(email, password, name);
     if (!ok) {
-      setError("Đăng nhập thất bại. Kiểm tra email/mật khẩu hoặc server BE.");
+      setError("Đăng ký thất bại. Kiểm tra thông tin hoặc server BE.");
       return;
     }
     navigate(from || "/dashboard", { replace: true });
@@ -34,10 +35,20 @@ const LoginPage = () => {
       <div className="w-full max-w-md rounded-2xl bg-white/10 p-8 shadow-2xl backdrop-blur">
         <div className="mb-6 text-center">
           <p className="text-sm uppercase tracking-[0.25em] text-slate-300">10k hours</p>
-          <h1 className="text-2xl font-bold text-white">Focus & Time Tracking</h1>
-          <p className="mt-2 text-sm text-slate-200">Đăng nhập bằng email và mật khẩu của bạn.</p>
+          <h1 className="text-2xl font-bold text-white">Tạo tài khoản</h1>
+          <p className="mt-2 text-sm text-slate-200">Đăng ký để bắt đầu quản lý thời gian.</p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="mb-1 block text-sm text-slate-200">Họ tên (tuỳ chọn)</label>
+            <input
+              className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-white placeholder:text-slate-300 focus:border-emerald-400 focus:outline-none"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Nguyễn Văn A"
+              autoComplete="name"
+            />
+          </div>
           <div>
             <label className="mb-1 block text-sm text-slate-200">Email</label>
             <input
@@ -49,14 +60,14 @@ const LoginPage = () => {
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm text-slate-200">Password</label>
+            <label className="mb-1 block text-sm text-slate-200">Mật khẩu</label>
             <input
               type="password"
               className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-white placeholder:text-slate-300 focus:border-emerald-400 focus:outline-none"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              autoComplete="current-password"
+              autoComplete="new-password"
             />
           </div>
           {error ? <p className="text-sm text-rose-200">{error}</p> : null}
@@ -64,13 +75,13 @@ const LoginPage = () => {
             type="submit"
             className="w-full rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-400"
           >
-            Đăng nhập
+            Đăng ký
           </button>
         </form>
         <p className="mt-4 text-center text-sm text-slate-200">
-          Chưa có tài khoản?{" "}
-          <Link className="text-emerald-300 underline underline-offset-4" to="/register">
-            Đăng ký
+          Đã có tài khoản?{" "}
+          <Link className="text-emerald-300 underline underline-offset-4" to="/login">
+            Đăng nhập
           </Link>
         </p>
       </div>
@@ -78,4 +89,4 @@ const LoginPage = () => {
   );
 };
 
-export default LoginPage;
+export default RegisterPage;
