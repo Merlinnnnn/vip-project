@@ -32,15 +32,26 @@ const TaskList = ({ tasks, onStatusChange, onDelete }: Props) => {
               ) : null}
             </div>
             <div className="flex items-center gap-2">
-              <select
-                className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs"
-                value={task.status}
-                onChange={(e) => onStatusChange?.(task.id, e.target.value as Task["status"])}
-              >
-                <option value="todo">To do</option>
-                <option value="in_progress">In progress</option>
-                <option value="done">Done</option>
-              </select>
+              <div className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-1 py-1 text-xs">
+                {(["todo", "in_progress", "done"] as Task["status"][]).map((st) => (
+                  <button
+                    key={st}
+                    type="button"
+                    className={`rounded px-2 py-1 font-semibold transition ${
+                      task.status === st
+                        ? st === "done"
+                          ? "bg-emerald-100 text-emerald-800"
+                          : st === "in_progress"
+                            ? "bg-blue-100 text-blue-800"
+                            : "bg-amber-100 text-amber-800"
+                        : "text-slate-600 hover:bg-slate-100"
+                    }`}
+                    onClick={() => onStatusChange?.(task.id, st)}
+                  >
+                    {st === "in_progress" ? "In progress" : st === "done" ? "Done" : "To do"}
+                  </button>
+                ))}
+              </div>
               <span
                 className={`rounded-full px-3 py-1 text-xs font-semibold ${statusStyles[task.status]}`}
               >

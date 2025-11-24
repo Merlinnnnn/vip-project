@@ -125,15 +125,26 @@ const TasksPage = () => {
           </div>
           <div>
             <label className="mb-1 block text-xs font-semibold text-slate-600">Trạng thái</label>
-            <select
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
-              value={form.status}
-              onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as TaskStatus }))}
-            >
-              <option value="todo">To do</option>
-              <option value="in_progress">In progress</option>
-              <option value="done">Done</option>
-            </select>
+            <div className="flex gap-2 rounded-lg border border-slate-200 bg-slate-50 p-1">
+              {[
+                { value: "todo", label: "To do", color: "bg-white text-slate-700 border-slate-200" },
+                { value: "in_progress", label: "In progress", color: "bg-blue-50 text-blue-800 border-blue-200" },
+                { value: "done", label: "Done", color: "bg-emerald-50 text-emerald-800 border-emerald-200" },
+              ].map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  className={`flex-1 rounded-md border px-3 py-2 text-xs font-semibold transition ${
+                    form.status === opt.value
+                      ? `${opt.color} shadow-sm`
+                      : "bg-transparent text-slate-600 hover:bg-white"
+                  }`}
+                  onClick={() => setForm((f) => ({ ...f, status: opt.value as TaskStatus }))}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="flex items-end">
             <button
