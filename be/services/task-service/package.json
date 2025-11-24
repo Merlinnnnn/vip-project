@@ -1,0 +1,23 @@
+{
+  "name": "task-service",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Task service scaffold (Node.js + Express + layered architecture).",
+  "scripts": {
+    "start": "node dist/main.js",
+    "start:dev": "ts-node-dev --respawn --transpile-only src/main.ts",
+    "build": "tsc",
+    "lint": "echo \"add eslint if needed\"",
+    "test": "echo \"add tests\""
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.12.13",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.3.3"
+  }
+}
