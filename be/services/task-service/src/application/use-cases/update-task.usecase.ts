@@ -6,8 +6,8 @@ import type { UUID } from '../../shared';
 export class UpdateTaskUseCase {
   constructor(private readonly repo: TaskRepository, private readonly domain: TaskDomainService) {}
 
-  async execute(id: UUID, dto: UpdateTaskDto) {
-    const task = await this.repo.findById(id);
+  async execute(userId: UUID, id: UUID, dto: UpdateTaskDto) {
+    const task = await this.repo.findById(id, userId);
     if (!task) {
       throw new Error('Task not found');
     }

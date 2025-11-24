@@ -3,6 +3,7 @@ import PageTitle from "../../components/common/PageTitle";
 import TaskList from "../../components/tasks/TaskList";
 import type { Task, TaskStatus } from "../../types/task";
 import { createTask, deleteTask, listTasks, updateTask } from "../../lib/tasksApi";
+import { useAuth } from "../../routes/AuthContext";
 
 type FormState = {
   title: string;
@@ -13,6 +14,7 @@ type FormState = {
 const defaultForm: FormState = { title: "", description: "", status: "todo" };
 
 const TasksPage = () => {
+  const { user, token } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [form, setForm] = useState<FormState>(defaultForm);
   const [loading, setLoading] = useState(false);
@@ -21,10 +23,11 @@ const TasksPage = () => {
 
   const load = useMemo(
     () => async () => {
+      if (!user) return;
       try {
         setLoading(true);
         setError(null);
-        const data = await listTasks();
+        const data = await listTasks({ userId: user.id, token });
         setTasks(data);
       } catch (err) {
         setError((err as Error).message);
@@ -32,7 +35,7 @@ const TasksPage = () => {
         setLoading(false);
       }
     },
-    [],
+    [token, user],
   );
 
   useEffect(() => {
@@ -47,11 +50,18 @@ const TasksPage = () => {
     try {
       setSaving(true);
       setError(null);
-      const created = await createTask({
-        title: form.title.trim(),
-        description: form.description.trim() || null,
-        status: form.status,
-      });
+      if (!user) {
+        setError("Bạn cần đăng nhập lại.");
+        return;
+      }
+      const created = await createTask(
+        { userId: user.id, token },
+        {
+          title: form.title.trim(),
+          description: form.description.trim() || null,
+          status: form.status,
+        },
+      );
       setTasks((prev) => [created, ...prev]);
       setForm(defaultForm);
     } catch (err) {
@@ -63,7 +73,11 @@ const TasksPage = () => {
 
   const handleStatusChange = async (id: string, status: TaskStatus) => {
     try {
-      const updated = await updateTask(id, { status });
+      if (!user) {
+        setError("Bạn cần đăng nhập lại.");
+        return;
+      }
+      const updated = await updateTask({ userId: user.id, token }, id, { status });
       setTasks((prev) => prev.map((t) => (t.id === id ? updated : t)));
     } catch (err) {
       setError((err as Error).message);
@@ -72,7 +86,11 @@ const TasksPage = () => {
 
   const handleDelete = async (id: string) => {
     try {
-      await deleteTask(id);
+      if (!user) {
+        setError("Bạn cần đăng nhập lại.");
+        return;
+      }
+      await deleteTask({ userId: user.id, token }, id);
       setTasks((prev) => prev.filter((t) => t.id !== id));
     } catch (err) {
       setError((err as Error).message);

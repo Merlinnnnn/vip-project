@@ -3,12 +3,14 @@ import { Task } from '../../domain/entities/task.entity';
 import { TaskRepository } from '../../domain/repositories/task.repository';
 import { TaskDomainService } from '../../domain/services/task-domain.service';
 import type { CreateTaskDto } from '../dto/create-task.dto';
+import type { UUID } from '../../shared';
 
 export class CreateTaskUseCase {
   constructor(private readonly repo: TaskRepository, private readonly domain: TaskDomainService) {}
 
-  async execute(dto: CreateTaskDto) {
-    const task = new Task(randomUUID(), dto.title, dto.description ?? null);
+  async execute(userId: UUID, dto: CreateTaskDto) {
+    const status = dto.status ?? 'todo';
+    const task = new Task(randomUUID(), userId, dto.title, dto.description ?? null, status);
     this.domain.ensureValidStatus(task.status);
     return this.repo.create(task);
   }

@@ -22,7 +22,9 @@ export class TaskController {
 
   private getAll = async (_req: Request, res: Response, next: NextFunction) => {
     try {
-      const tasks = await this.listTasks.execute();
+      const userId = this.getUserId(_req, res);
+      if (!userId) return;
+      const tasks = await this.listTasks.execute(userId);
       res.json(tasks);
     } catch (err) {
       next(err);
@@ -31,7 +33,9 @@ export class TaskController {
 
   private create = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const task = await this.createTask.execute({
+      const userId = this.getUserId(req, res);
+      if (!userId) return;
+      const task = await this.createTask.execute(userId, {
         title: req.body.title,
         description: req.body.description
       });
@@ -43,7 +47,9 @@ export class TaskController {
 
   private update = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const task = await this.updateTask.execute(req.params.id, req.body);
+      const userId = this.getUserId(req, res);
+      if (!userId) return;
+      const task = await this.updateTask.execute(userId, req.params.id, req.body);
       res.json(task);
     } catch (err) {
       next(err);
@@ -52,10 +58,21 @@ export class TaskController {
 
   private remove = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      await this.deleteTask.execute(req.params.id);
+      const userId = this.getUserId(req, res);
+      if (!userId) return;
+      await this.deleteTask.execute(userId, req.params.id);
       res.status(204).send();
     } catch (err) {
       next(err);
     }
   };
+
+  private getUserId(req: Request, res: Response): string | undefined {
+    const userId = req.header('x-user-id');
+    if (!userId) {
+      res.status(400).json({ message: 'Missing x-user-id' });
+      return;
+    }
+    return userId;
+  }
 }

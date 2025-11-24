@@ -6,6 +6,7 @@ import { prisma } from './prisma/prisma.client';
 function mapToDomain(task: any): Task {
   return new Task(
     task.id,
+    task.userId,
     task.title,
     task.description ?? null,
     task.status,
@@ -15,13 +16,16 @@ function mapToDomain(task: any): Task {
 }
 
 export class PrismaTaskRepository extends TaskRepository {
-  async findAll(): Promise<Task[]> {
-    const tasks = await prisma.task.findMany({ orderBy: { createdAt: 'desc' } });
+  async findAllByUser(userId: UUID): Promise<Task[]> {
+    const tasks = await prisma.task.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' }
+    });
     return tasks.map(mapToDomain);
   }
 
-  async findById(id: UUID): Promise<Task | null> {
-    const task = await prisma.task.findUnique({ where: { id } });
+  async findById(id: UUID, userId: UUID): Promise<Task | null> {
+    const task = await prisma.task.findFirst({ where: { id, userId } });
     return task ? mapToDomain(task) : null;
   }
 
@@ -29,6 +33,7 @@ export class PrismaTaskRepository extends TaskRepository {
     const created = await prisma.task.create({
       data: {
         id: task.id,
+        userId: task.userId,
         title: task.title,
         description: task.description,
         status: task.status
@@ -49,7 +54,7 @@ export class PrismaTaskRepository extends TaskRepository {
     return mapToDomain(updated);
   }
 
-  async delete(id: UUID): Promise<void> {
-    await prisma.task.delete({ where: { id } });
+  async delete(id: UUID, userId: UUID): Promise<void> {
+    await prisma.task.deleteMany({ where: { id, userId } });
   }
 }

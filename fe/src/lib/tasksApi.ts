@@ -3,9 +3,14 @@ import type { Task, TaskStatus } from "../types/task";
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:9999";
 
 type TaskInput = {
-  title: string;
+  title?: string;
   description?: string | null;
   status?: TaskStatus;
+};
+
+type AuthHeaders = {
+  userId: string;
+  token?: string | null;
 };
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
@@ -17,26 +22,32 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
   return (await res.json()) as T;
 }
 
-export function listTasks(): Promise<Task[]> {
-  return request<Task[]>(`${API_URL}/tasks`);
+function buildHeaders(auth: AuthHeaders, extra?: Record<string, string>) {
+  const headers: Record<string, string> = { ...(extra ?? {}), "x-user-id": auth.userId };
+  if (auth.token) headers.Authorization = `Bearer ${auth.token}`;
+  return headers;
 }
 
-export function createTask(input: TaskInput): Promise<Task> {
+export function listTasks(auth: AuthHeaders): Promise<Task[]> {
+  return request<Task[]>(`${API_URL}/tasks`, { headers: buildHeaders(auth) });
+}
+
+export function createTask(auth: AuthHeaders, input: TaskInput): Promise<Task> {
   return request<Task>(`${API_URL}/tasks`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: buildHeaders(auth, { "Content-Type": "application/json" }),
     body: JSON.stringify(input),
   });
 }
 
-export function updateTask(id: string, input: TaskInput): Promise<Task> {
+export function updateTask(auth: AuthHeaders, id: string, input: TaskInput): Promise<Task> {
   return request<Task>(`${API_URL}/tasks/${id}`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers: buildHeaders(auth, { "Content-Type": "application/json" }),
     body: JSON.stringify(input),
   });
 }
 
-export function deleteTask(id: string): Promise<void> {
-  return request<void>(`${API_URL}/tasks/${id}`, { method: "DELETE" });
+export function deleteTask(auth: AuthHeaders, id: string): Promise<void> {
+  return request<void>(`${API_URL}/tasks/${id}`, { method: "DELETE", headers: buildHeaders(auth) });
 }
