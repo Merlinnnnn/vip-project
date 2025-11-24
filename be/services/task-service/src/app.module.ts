@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { TaskDomainService } from './domain/services/task-domain.service';
 import { InMemoryTaskRepository } from './infrastructure/persistence/task.inmemory.repository';
+import { PrismaTaskRepository } from './infrastructure/persistence/task.prisma.repository';
 import { CreateTaskUseCase } from './application/use-cases/create-task.usecase';
 import { UpdateTaskUseCase } from './application/use-cases/update-task.usecase';
 import { DeleteTaskUseCase } from './application/use-cases/delete-task.usecase';
@@ -13,7 +14,7 @@ export function createApp() {
   app.use(cors());
   app.use(express.json());
 
-  const repo = new InMemoryTaskRepository();
+  const repo = new PrismaTaskRepository(); // switch to InMemoryTaskRepository for quick dev
   const domain = new TaskDomainService();
   const createTask = new CreateTaskUseCase(repo, domain);
   const updateTask = new UpdateTaskUseCase(repo, domain);
