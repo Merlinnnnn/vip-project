@@ -4,6 +4,7 @@ import {
   useEffect,
   useMemo,
   useCallback,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -34,6 +35,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const raw = localStorage.getItem(USER_KEY);
     return raw ? (JSON.parse(raw) as AuthUser) : null;
   });
+  const attemptedRefresh = useRef(false);
 
   const isAuthenticated = Boolean(token && user);
 
@@ -105,11 +107,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   );
 
   useEffect(() => {
-    // attempt silent refresh on mount (async to avoid sync setState warning)
-    void (async () => {
-      await tryRefresh();
-    })();
-  }, [tryRefresh]);
+    // attempt silent refresh once if we have refresh token
+    if (attemptedRefresh.current) return;
+    if (!refreshToken) return;
+    attemptedRefresh.current = true;
+    void tryRefresh();
+  }, [refreshToken, tryRefresh]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
