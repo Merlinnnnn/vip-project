@@ -8,6 +8,8 @@ import { UpdateTaskUseCase } from './application/use-cases/update-task.usecase';
 import { DeleteTaskUseCase } from './application/use-cases/delete-task.usecase';
 import { ListTasksUseCase } from './application/use-cases/list-tasks.usecase';
 import { TaskController } from './interfaces/rest/task.controller';
+import { TokenStore } from './infrastructure/cache/token.store';
+import { AuthController } from './interfaces/rest/auth.controller';
 
 export function createApp() {
   const app = express();
@@ -20,9 +22,13 @@ export function createApp() {
   const updateTask = new UpdateTaskUseCase(repo, domain);
   const deleteTask = new DeleteTaskUseCase(repo);
   const listTasks = new ListTasksUseCase(repo);
+  const tokenStore = new TokenStore();
 
-  const controller = new TaskController(createTask, updateTask, deleteTask, listTasks);
-  app.use('/api/tasks', controller.router);
+  const tasksController = new TaskController(createTask, updateTask, deleteTask, listTasks, tokenStore);
+  const authController = new AuthController(tokenStore);
+
+  app.use('/api/tasks', tasksController.router);
+  app.use('/api/auth', authController.router);
 
   app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
