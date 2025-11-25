@@ -5,7 +5,13 @@ const { createProxyMiddleware } = require('http-proxy-middleware');
 const app = express();
 const PORT = process.env.PORT ?? 9999;
 
-app.use(cors());
+const origin = process.env.CORS_ORIGIN ?? 'http://localhost:5173';
+app.use(
+  cors({
+    origin,
+    credentials: true
+  })
+);
 
 app.use(
   '/auth',

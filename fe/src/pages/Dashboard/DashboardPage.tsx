@@ -4,9 +4,9 @@ import TaskList from "../../components/tasks/TaskList";
 import type { Task } from "../../types/task";
 
 const tasks: Task[] = [
-  { id: 1, title: "Write weekly review", status: "in-progress", dueDate: "Today" },
-  { id: 2, title: "Read 10 pages about React 19", status: "todo", dueDate: "Tomorrow" },
-  { id: 3, title: "Practice English speaking", status: "done", dueDate: "Yesterday" },
+  { id: "1", title: "Write weekly review", status: "in_progress" },
+  { id: "2", title: "Read 10 pages about React 19", status: "todo" },
+  { id: "3", title: "Practice English speaking", status: "done" },
 ];
 
 const statCards = [

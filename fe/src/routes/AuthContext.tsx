@@ -8,59 +8,56 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { login as loginApi, register as registerApi, refresh as refreshApi } from "../lib/authApi";
+import {
+  login as loginApi,
+  register as registerApi,
+  refresh as refreshApi,
+  logout as logoutApi,
+} from "../lib/authApi";
 import type { AuthUser } from "../types/auth";
 
 type AuthContextType = {
   isAuthenticated: boolean;
   user: AuthUser | null;
-  token: string | null;
-  refreshToken: string | null;
   login: (email: string, password: string) => Promise<boolean>;
   register: (email: string, password: string, name?: string) => Promise<boolean>;
   tryRefresh: () => Promise<boolean>;
-  logout: () => void;
+  logout: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-const TOKEN_KEY = "auth_token";
 const USER_KEY = "auth_user";
-const REFRESH_KEY = "auth_refresh";
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem(TOKEN_KEY));
-  const [refreshToken, setRefreshToken] = useState<string | null>(() => localStorage.getItem(REFRESH_KEY));
   const [user, setUser] = useState<AuthUser | null>(() => {
     const raw = localStorage.getItem(USER_KEY);
     return raw ? (JSON.parse(raw) as AuthUser) : null;
   });
   const attemptedRefresh = useRef(false);
 
-  const isAuthenticated = Boolean(token && user);
+  const isAuthenticated = Boolean(user);
 
-  const persist = (access: string, refresh: string, userData: AuthUser) => {
-    setToken(access);
-    setRefreshToken(refresh);
+  const persistUser = (userData: AuthUser) => {
     setUser(userData);
-    localStorage.setItem(TOKEN_KEY, access);
-    localStorage.setItem(REFRESH_KEY, refresh);
     localStorage.setItem(USER_KEY, JSON.stringify(userData));
   };
 
-  const logout = useCallback(() => {
-    setToken(null);
-    setRefreshToken(null);
-    setUser(null);
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(REFRESH_KEY);
-    localStorage.removeItem(USER_KEY);
+  const logout = useCallback(async () => {
+    try {
+      await logoutApi();
+    } catch (err) {
+      console.error("Logout failed", err);
+    } finally {
+      setUser(null);
+      localStorage.removeItem(USER_KEY);
+    }
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
     try {
       const res = await loginApi(email, password);
-      persist(res.accessToken, res.refreshToken, res.user);
+      persistUser(res.user);
       return true;
     } catch (err) {
       console.error(err);
@@ -71,7 +68,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const register = useCallback(async (email: string, password: string, name?: string) => {
     try {
       const res = await registerApi(email, password, name);
-      persist(res.accessToken, res.refreshToken, res.user);
+      persistUser(res.user);
       return true;
     } catch (err) {
       console.error(err);
@@ -80,39 +77,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const tryRefresh = useCallback(async () => {
-    if (!refreshToken) return false;
     try {
-      const res = await refreshApi(refreshToken);
-      persist(res.accessToken, res.refreshToken, res.user);
+      const res = await refreshApi();
+      persistUser(res.user);
       return true;
     } catch (err) {
       console.error("Refresh failed", err);
-      logout();
+      await logout();
       return false;
     }
-  }, [logout, refreshToken]);
+  }, [logout]);
 
   const value = useMemo(
     () => ({
       isAuthenticated,
       user,
-      token,
-      refreshToken,
       login,
       register,
       tryRefresh,
       logout,
     }),
-    [isAuthenticated, user, token, refreshToken, login, register, tryRefresh, logout],
+    [isAuthenticated, user, login, register, tryRefresh, logout],
   );
 
   useEffect(() => {
-    // attempt silent refresh once if we have refresh token
+    // attempt silent refresh once on mount
     if (attemptedRefresh.current) return;
-    if (!refreshToken) return;
     attemptedRefresh.current = true;
     void tryRefresh();
-  }, [refreshToken, tryRefresh]);
+  }, [tryRefresh]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

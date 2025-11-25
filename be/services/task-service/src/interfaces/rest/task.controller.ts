@@ -68,11 +68,35 @@ export class TaskController {
   };
 
   private getUserId(req: Request, res: Response): string | undefined {
-    const userId = req.header('x-user-id');
-    if (!userId) {
-      res.status(400).json({ message: 'Missing x-user-id' });
+    const token = this.extractAccessToken(req);
+    if (!token) {
+      res.status(401).json({ message: 'Missing access token' });
       return;
     }
-    return userId;
+    const payload = this.decodeToken(token);
+    if (!payload?.sub) {
+      res.status(401).json({ message: 'Invalid token' });
+      return;
+    }
+    return payload.sub;
+  }
+
+  private extractAccessToken(req: Request): string | undefined {
+    const bearer = req.headers.authorization;
+    if (bearer?.startsWith('Bearer ')) {
+      return bearer.substring('Bearer '.length);
+    }
+    const cookieToken = req.cookies?.access_token as string | undefined;
+    if (cookieToken) return cookieToken;
+    return undefined;
+  }
+
+  private decodeToken(token: string): { sub?: string; email?: string } | undefined {
+    try {
+      const decoded = Buffer.from(token, 'base64').toString('utf-8');
+      return JSON.parse(decoded) as { sub?: string; email?: string };
+    } catch {
+      return undefined;
+    }
   }
 }

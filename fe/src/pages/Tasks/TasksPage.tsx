@@ -14,7 +14,7 @@ type FormState = {
 const defaultForm: FormState = { title: "", description: "", status: "todo" };
 
 const TasksPage = () => {
-  const { user, token } = useAuth();
+  const { user } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [form, setForm] = useState<FormState>(defaultForm);
   const [loading, setLoading] = useState(false);
@@ -27,7 +27,7 @@ const TasksPage = () => {
       try {
         setLoading(true);
         setError(null);
-        const data = await listTasks({ userId: user.id, token });
+        const data = await listTasks();
         setTasks(data);
       } catch (err) {
         setError((err as Error).message);
@@ -35,7 +35,7 @@ const TasksPage = () => {
         setLoading(false);
       }
     },
-    [token, user],
+    [user],
   );
 
   useEffect(() => {
@@ -44,24 +44,21 @@ const TasksPage = () => {
 
   const handleCreate = async () => {
     if (!form.title.trim()) {
-      setError("Tiêu đề không được để trống");
+      setError("Title is required");
       return;
     }
     try {
       setSaving(true);
       setError(null);
       if (!user) {
-        setError("Bạn cần đăng nhập lại.");
+        setError("Please sign in again.");
         return;
       }
-      const created = await createTask(
-        { userId: user.id, token },
-        {
-          title: form.title.trim(),
-          description: form.description.trim() || null,
-          status: form.status,
-        },
-      );
+      const created = await createTask({
+        title: form.title.trim(),
+        description: form.description.trim() || null,
+        status: form.status,
+      });
       setTasks((prev) => [created, ...prev]);
       setForm(defaultForm);
     } catch (err) {
@@ -74,10 +71,10 @@ const TasksPage = () => {
   const handleStatusChange = async (id: string, status: TaskStatus) => {
     try {
       if (!user) {
-        setError("Bạn cần đăng nhập lại.");
+        setError("Please sign in again.");
         return;
       }
-      const updated = await updateTask({ userId: user.id, token }, id, { status });
+      const updated = await updateTask(id, { status });
       setTasks((prev) => prev.map((t) => (t.id === id ? updated : t)));
     } catch (err) {
       setError((err as Error).message);
@@ -87,10 +84,10 @@ const TasksPage = () => {
   const handleDelete = async (id: string) => {
     try {
       if (!user) {
-        setError("Bạn cần đăng nhập lại.");
+        setError("Please sign in again.");
         return;
       }
-      await deleteTask({ userId: user.id, token }, id);
+      await deleteTask(id);
       setTasks((prev) => prev.filter((t) => t.id !== id));
     } catch (err) {
       setError((err as Error).message);
@@ -99,32 +96,32 @@ const TasksPage = () => {
 
   return (
     <div className="space-y-4">
-      <PageTitle title="Tasks" subtitle="Quản lý công việc cá nhân từ Task Service (API)" />
+      <PageTitle title="Tasks" subtitle="Manage your personal tasks powered by the Task Service (API)" />
 
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h3 className="text-sm font-semibold text-slate-800">Tạo task mới</h3>
+        <h3 className="text-sm font-semibold text-slate-800">Create task</h3>
         <div className="mt-3 grid gap-3 md:grid-cols-2">
           <div className="md:col-span-2">
-            <label className="mb-1 block text-xs font-semibold text-slate-600">Tiêu đề</label>
+            <label className="mb-1 block text-xs font-semibold text-slate-600">Title</label>
             <input
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
               value={form.title}
               onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-              placeholder="Ví dụ: Hoàn thành báo cáo tuần"
+              placeholder="Ex: Ship the weekly report"
             />
           </div>
           <div className="md:col-span-2">
-            <label className="mb-1 block text-xs font-semibold text-slate-600">Mô tả</label>
+            <label className="mb-1 block text-xs font-semibold text-slate-600">Description</label>
             <textarea
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
               value={form.description}
               onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-              placeholder="Ghi chú thêm..."
+              placeholder="Notes..."
               rows={3}
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-semibold text-slate-600">Trạng thái</label>
+            <label className="mb-1 block text-xs font-semibold text-slate-600">Status</label>
             <div className="flex gap-2 rounded-lg border border-slate-200 bg-slate-50 p-1">
               {[
                 { value: "todo", label: "To do", color: "bg-white text-slate-700 border-slate-200" },
@@ -153,7 +150,7 @@ const TasksPage = () => {
               disabled={saving}
               className="w-full rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-70"
             >
-              {saving ? "Đang lưu..." : "Tạo task"}
+              {saving ? "Saving..." : "Create task"}
             </button>
           </div>
         </div>
@@ -161,7 +158,7 @@ const TasksPage = () => {
       </div>
 
       {loading ? (
-        <p className="text-sm text-slate-600">Đang tải tasks...</p>
+        <p className="text-sm text-slate-600">Loading tasks...</p>
       ) : (
         <TaskList tasks={tasks} onStatusChange={handleStatusChange} onDelete={handleDelete} />
       )}

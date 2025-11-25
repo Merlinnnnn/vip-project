@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import { AuthController } from './interfaces/rest/auth.controller';
 import { RegisterUseCase } from './application/use-cases/register.usecase';
 import { LoginUseCase } from './application/use-cases/login.usecase';
@@ -12,8 +13,28 @@ import { PrismaUserRepository } from './infrastructure/persistence/user.prisma.r
 
 export function createApp() {
   const app = express();
-  app.use(cors());
+  const origin = process.env.CORS_ORIGIN ?? 'http://localhost:5173';
+  app.use(
+    cors({
+      origin,
+      credentials: true
+    })
+  );
   app.use(express.json());
+  app.use(cookieParser());
+
+  // Basic anti-scripted-clients guard: require browser-like Origin/Fetch headers
+  app.use((req, res, next) => {
+    const requestOrigin = req.headers.origin;
+    const secFetchSite = req.headers['sec-fetch-site'] as string | undefined;
+    if (requestOrigin && requestOrigin !== origin) {
+      return res.status(403).json({ message: 'Origin not allowed' });
+    }
+    if (!requestOrigin && !secFetchSite) {
+      return res.status(403).json({ message: 'Origin header required' });
+    }
+    next();
+  });
 
   // Request logger (simple)
   app.use((req, _res, next) => {
@@ -41,7 +62,8 @@ export function createApp() {
     registerUseCase,
     loginUseCase,
     getMeUseCase,
-    refreshTokenUseCase
+    refreshTokenUseCase,
+    jwtProvider
   );
   app.use('/api/auth', authController.router);
 

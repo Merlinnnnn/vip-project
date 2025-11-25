@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import { TaskDomainService } from './domain/services/task-domain.service';
 import { InMemoryTaskRepository } from './infrastructure/persistence/task.inmemory.repository';
 import { PrismaTaskRepository } from './infrastructure/persistence/task.prisma.repository';
@@ -11,8 +12,28 @@ import { TaskController } from './interfaces/rest/task.controller';
 
 export function createApp() {
   const app = express();
-  app.use(cors());
+  const origin = process.env.CORS_ORIGIN ?? 'http://localhost:5173';
+  app.use(
+    cors({
+      origin,
+      credentials: true
+    })
+  );
   app.use(express.json());
+  app.use(cookieParser());
+
+  // Basic anti-scripted-clients guard: require browser-like Origin/Fetch headers
+  app.use((req, res, next) => {
+    const requestOrigin = req.headers.origin;
+    const secFetchSite = req.headers['sec-fetch-site'] as string | undefined;
+    if (requestOrigin && requestOrigin !== origin) {
+      return res.status(403).json({ message: 'Origin not allowed' });
+    }
+    if (!requestOrigin && !secFetchSite) {
+      return res.status(403).json({ message: 'Origin header required' });
+    }
+    next();
+  });
 
   const repo = new PrismaTaskRepository(); // switch to InMemoryTaskRepository for quick dev
   const domain = new TaskDomainService();
