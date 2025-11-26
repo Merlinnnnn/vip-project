@@ -6,6 +6,7 @@ export type Task = {
   title: string;
   description?: string | null;
   status: TaskStatus;
+  priority?: number;
   createdAt?: string;
   updatedAt?: string;
 };

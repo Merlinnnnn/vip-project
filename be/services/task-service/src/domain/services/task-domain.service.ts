@@ -8,12 +8,18 @@ export class TaskDomainService {
     }
   }
 
-  updateTask(task: Task, data: Partial<Pick<Task, 'title' | 'description' | 'status'>>) {
+  updateTask(
+    task: Task,
+    data: Partial<Pick<Task, 'title' | 'description' | 'status' | 'priority'>>
+  ) {
     if (data.title !== undefined) task.title = data.title;
     if (data.description !== undefined) task.description = data.description;
     if (data.status !== undefined) {
       this.ensureValidStatus(data.status);
       task.status = data.status;
+    }
+    if (data.priority !== undefined) {
+      task.priority = data.priority;
     }
     task.updatedAt = new Date();
     return task;

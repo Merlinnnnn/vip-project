@@ -6,6 +6,7 @@ type TaskInput = {
   title?: string;
   description?: string | null;
   status?: TaskStatus;
+  priority?: number;
 };
 
 type AuthHeaders = {

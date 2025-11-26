@@ -10,7 +10,8 @@ export class CreateTaskUseCase {
 
   async execute(userId: UUID, dto: CreateTaskDto) {
     const status = dto.status ?? 'todo';
-    const task = new Task(randomUUID(), userId, dto.title, dto.description ?? null, status);
+    const priority = dto.priority ?? Date.now();
+    const task = new Task(randomUUID(), userId, dto.title, dto.description ?? null, status, priority);
     this.domain.ensureValidStatus(task.status);
     return this.repo.create(task);
   }

@@ -10,6 +10,7 @@ function mapToDomain(task: any): Task {
     task.title,
     task.description ?? null,
     task.status,
+    task.priority,
     task.createdAt,
     task.updatedAt
   );
@@ -19,7 +20,8 @@ export class PrismaTaskRepository extends TaskRepository {
   async findAllByUser(userId: UUID): Promise<Task[]> {
     const tasks = await prisma.task.findMany({
       where: { userId },
-      orderBy: { createdAt: 'desc' }
+      // cast to any to allow using fresh priority field even if prisma types are stale
+      orderBy: { priority: 'desc' } as any
     });
     return tasks.map(mapToDomain);
   }
@@ -36,8 +38,9 @@ export class PrismaTaskRepository extends TaskRepository {
         userId: task.userId,
         title: task.title,
         description: task.description,
-        status: task.status
-      }
+        status: task.status,
+        priority: task.priority
+      } as any
     });
     return mapToDomain(created);
   }
@@ -48,8 +51,9 @@ export class PrismaTaskRepository extends TaskRepository {
       data: {
         title: task.title,
         description: task.description,
-        status: task.status
-      }
+        status: task.status,
+        priority: task.priority
+      } as any
     });
     return mapToDomain(updated);
   }

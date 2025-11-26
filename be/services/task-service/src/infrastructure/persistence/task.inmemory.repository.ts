@@ -7,7 +7,9 @@ export class InMemoryTaskRepository extends TaskRepository {
   private readonly tasks = new Map<UUID, Task>();
 
   async findAllByUser(userId: UUID): Promise<Task[]> {
-    return Array.from(this.tasks.values()).filter((t) => t.userId === userId);
+    return Array.from(this.tasks.values())
+      .filter((t) => t.userId === userId)
+      .sort((a, b) => b.priority - a.priority);
   }
 
   async findById(id: UUID, userId: UUID): Promise<Task | null> {
@@ -26,6 +28,7 @@ export class InMemoryTaskRepository extends TaskRepository {
       task.title,
       task.description,
       task.status,
+      task.priority,
       task.createdAt,
       task.updatedAt
     );

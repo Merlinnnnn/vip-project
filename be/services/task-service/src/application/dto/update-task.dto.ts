@@ -4,4 +4,5 @@ export type UpdateTaskDto = {
   title?: string;
   description?: string | null;
   status?: TaskStatus;
+  priority?: number;
 };
