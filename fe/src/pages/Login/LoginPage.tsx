@@ -6,6 +6,7 @@ import { useAuth } from "../../routes/AuthContext";
 const LoginPage = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
   const { login, isAuthenticated } = useAuth();
   const navigate = useNavigate();
@@ -21,9 +22,9 @@ const LoginPage = () => {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
-    const ok = await login(email, password);
+    const ok = await login(email, password, rememberMe);
     if (!ok) {
-      setError("Đăng nhập thất bại. Kiểm tra email/mật khẩu hoặc server BE.");
+      setError("Dang nhap that bai. Kiem tra email/mat khau hoac server BE.");
       return;
     }
     navigate(from || "/dashboard", { replace: true });
@@ -35,7 +36,7 @@ const LoginPage = () => {
         <div className="mb-6 text-center">
           <p className="text-sm uppercase tracking-[0.25em] text-slate-300">10k hours</p>
           <h1 className="text-2xl font-bold text-white">Focus & Time Tracking</h1>
-          <p className="mt-2 text-sm text-slate-200">Đăng nhập bằng email và mật khẩu của bạn.</p>
+          <p className="mt-2 text-sm text-slate-200">Dang nhap bang email va mat khau cua ban.</p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -55,22 +56,31 @@ const LoginPage = () => {
               className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-white placeholder:text-slate-300 focus:border-emerald-400 focus:outline-none"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
+              placeholder="Your password"
               autoComplete="current-password"
             />
           </div>
+          <label className="flex items-center gap-2 text-sm text-slate-200">
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border border-white/30 bg-white/10 text-emerald-400 accent-emerald-400"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+            />
+            <span>Luu dang nhap (ghi nho tren thiet bi nay)</span>
+          </label>
           {error ? <p className="text-sm text-rose-200">{error}</p> : null}
           <button
             type="submit"
             className="w-full rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-400"
           >
-            Đăng nhập
+            Dang nhap
           </button>
         </form>
         <p className="mt-4 text-center text-sm text-slate-200">
-          Chưa có tài khoản?{" "}
+          Chua co tai khoan?{" "}
           <Link className="text-emerald-300 underline underline-offset-4" to="/register">
-            Đăng ký
+            Dang ky
           </Link>
         </p>
       </div>

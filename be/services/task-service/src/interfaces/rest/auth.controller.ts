@@ -7,6 +7,8 @@ export class AuthController {
   constructor(private readonly tokenStore: TokenStore) {
     this.router = Router();
     this.router.post('/tokens', this.saveTokens);
+    this.router.post('/credentials', this.saveCredentials);
+    this.router.get('/credentials/:userId', this.getCredentials);
     this.router.get('/tokens/:userId', this.getTokensForUser);
     this.router.post('/tokens/verify', this.verifyAccessToken);
     this.router.delete('/tokens/:userId', this.revokeTokens);
@@ -14,7 +16,7 @@ export class AuthController {
 
   private saveTokens = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { userId, accessToken, refreshToken } = req.body ?? {};
+      const { userId, accessToken, refreshToken, username, password } = req.body ?? {};
 
       if (!userId || !accessToken || !refreshToken) {
         res.status(400).json({ message: 'userId, accessToken and refreshToken are required' });
@@ -22,7 +24,39 @@ export class AuthController {
       }
 
       await this.tokenStore.saveTokens(userId, accessToken, refreshToken);
+      if (username && password) {
+        await this.tokenStore.saveCredentials(userId, username, password);
+      }
       res.status(201).json({ message: 'Tokens stored' });
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  private saveCredentials = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { userId, username, password } = req.body ?? {};
+      if (!userId || !username || !password) {
+        res.status(400).json({ message: 'userId, username, password are required' });
+        return;
+      }
+
+      await this.tokenStore.saveCredentials(userId, username, password);
+      res.status(201).json({ message: 'Credentials stored' });
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  private getCredentials = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { userId } = req.params;
+      const creds = await this.tokenStore.getCredentials(userId);
+      if (!creds) {
+        res.status(404).json({ message: 'No credentials stored' });
+        return;
+      }
+      res.json(creds);
     } catch (err) {
       next(err);
     }

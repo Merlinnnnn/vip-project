@@ -16,7 +16,7 @@ type AuthContextType = {
   user: AuthUser | null;
   token: string | null;
   refreshToken: string | null;
-  login: (email: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string, remember?: boolean) => Promise<boolean>;
   register: (email: string, password: string, name?: string) => Promise<boolean>;
   tryRefresh: () => Promise<boolean>;
   logout: () => void;
@@ -35,17 +35,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const raw = localStorage.getItem(USER_KEY);
     return raw ? (JSON.parse(raw) as AuthUser) : null;
   });
+  const [remembered, setRemembered] = useState<boolean>(() => {
+    const hasPersisted =
+      localStorage.getItem(TOKEN_KEY) || localStorage.getItem(REFRESH_KEY) || localStorage.getItem(USER_KEY);
+    return Boolean(hasPersisted);
+  });
   const attemptedRefresh = useRef(false);
 
   const isAuthenticated = Boolean(token && user);
 
-  const persist = (access: string, refresh: string, userData: AuthUser) => {
+  const persist = (access: string, refresh: string, userData: AuthUser, remember?: boolean) => {
+    const shouldRemember = remember ?? remembered;
+    setRemembered(shouldRemember);
     setToken(access);
     setRefreshToken(refresh);
     setUser(userData);
-    localStorage.setItem(TOKEN_KEY, access);
-    localStorage.setItem(REFRESH_KEY, refresh);
-    localStorage.setItem(USER_KEY, JSON.stringify(userData));
+
+    if (shouldRemember) {
+      localStorage.setItem(TOKEN_KEY, access);
+      localStorage.setItem(REFRESH_KEY, refresh);
+      localStorage.setItem(USER_KEY, JSON.stringify(userData));
+    } else {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(REFRESH_KEY);
+      localStorage.removeItem(USER_KEY);
+    }
   };
 
   const logout = useCallback(() => {
@@ -57,10 +71,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     localStorage.removeItem(USER_KEY);
   }, []);
 
-  const login = useCallback(async (email: string, password: string) => {
+  const login = useCallback(async (email: string, password: string, remember?: boolean) => {
     try {
       const res = await loginApi(email, password);
-      persist(res.accessToken, res.refreshToken, res.user);
+      persist(res.accessToken, res.refreshToken, res.user, remember);
       return true;
     } catch (err) {
       console.error(err);
@@ -71,7 +85,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const register = useCallback(async (email: string, password: string, name?: string) => {
     try {
       const res = await registerApi(email, password, name);
-      persist(res.accessToken, res.refreshToken, res.user);
+      persist(res.accessToken, res.refreshToken, res.user, true);
       return true;
     } catch (err) {
       console.error(err);
@@ -83,14 +97,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (!refreshToken) return false;
     try {
       const res = await refreshApi(refreshToken);
-      persist(res.accessToken, res.refreshToken, res.user);
+      persist(res.accessToken, res.refreshToken, res.user, remembered);
       return true;
     } catch (err) {
       console.error("Refresh failed", err);
       logout();
       return false;
     }
-  }, [logout, refreshToken]);
+  }, [logout, refreshToken, remembered]);
 
   const value = useMemo(
     () => ({

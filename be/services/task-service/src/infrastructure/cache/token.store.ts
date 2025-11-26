@@ -6,6 +6,11 @@ type StoredTokens = {
   refreshToken: string;
 };
 
+type StoredCredentials = {
+  username: string;
+  password: string;
+};
+
 export class TokenStore {
   private readonly accessTtlSeconds: number;
   private readonly refreshTtlSeconds: number;
@@ -27,6 +32,28 @@ export class TokenStore {
     });
 
     await tx.exec();
+  }
+
+  async saveCredentials(userId: string, username: string, password: string): Promise<void> {
+    await ensureRedisConnection();
+    await redisClient.set(
+      this.credentialsKey(userId),
+      JSON.stringify({ username, password }),
+      { EX: this.refreshTtlSeconds }
+    );
+  }
+
+  async getCredentials(userId: string): Promise<{ username: string; password: string } | null> {
+    const raw = await this.getString(this.credentialsKey(userId));
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw) as Partial<StoredCredentials>;
+      if (!parsed.username || !parsed.password) return null;
+      return { username: parsed.username, password: parsed.password };
+    } catch (err) {
+      console.error('[REDIS] failed to parse cached credentials', err);
+      return null;
+    }
   }
 
   async getUserIdByAccessToken(token: string): Promise<string | null> {
@@ -67,10 +94,14 @@ export class TokenStore {
     if (parsed.accessToken) keysToDelete.push(this.accessKey(parsed.accessToken));
     if (parsed.refreshToken) keysToDelete.push(this.refreshKey(parsed.refreshToken));
 
-    if (!keysToDelete.length) return;
+    if (!keysToDelete.length) {
+      await this.deleteCredentials(userId);
+      return;
+    }
 
     await ensureRedisConnection();
     await Promise.all(keysToDelete.map((key) => redisClient.del(key)));
+    await this.deleteCredentials(userId);
   }
 
   private accessKey(token: string) {
@@ -85,9 +116,18 @@ export class TokenStore {
     return `user-tokens:${userId}`;
   }
 
+  private credentialsKey(userId: string) {
+    return `user-credentials:${userId}`;
+  }
+
   private async getString(key: string): Promise<string | null> {
     await ensureRedisConnection();
     const value = await redisClient.get(key);
     return typeof value === 'string' ? value : null;
+  }
+
+  private async deleteCredentials(userId: string): Promise<void> {
+    await ensureRedisConnection();
+    await redisClient.del(this.credentialsKey(userId));
   }
 }
