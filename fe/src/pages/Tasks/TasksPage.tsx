@@ -19,6 +19,7 @@ import type { Task, TaskStatus } from "../../types/task";
 import { createTask, deleteTask, listTasks, updateTask } from "../../lib/tasksApi";
 import { useAuth } from "../../routes/AuthContext";
 import { useTasksStore } from "../../store/useTasksStore";
+import { useTimerStore } from "../../store/useTimerStore";
 
 type FormState = {
   title: string;
@@ -47,19 +48,21 @@ const TasksPage = () => {
   const [saving, setSaving] = useState(false);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [timerMode, setTimerMode] = useState<"countup" | "countdown">("countup");
-  const [isRunning, setIsRunning] = useState(false);
-  const [elapsed, setElapsed] = useState(0);
-  const [remaining, setRemaining] = useState(0);
-  const [currentPhase, setCurrentPhase] = useState<"focus" | "break" | "long_break">("focus");
-  const [round, setRound] = useState(1);
-  const [settings, setSettings] = useState({
-    focusMinutes: 25,
-    shortBreakMinutes: 5,
-    longBreakMinutes: 15,
-    rounds: 4,
-    longBreakEvery: 4,
-  });
+  const {
+    mode: timerMode,
+    isRunning,
+    elapsed,
+    remaining,
+    phase: currentPhase,
+    round,
+    settings,
+    setMode,
+    setSettings,
+    start,
+    toggle,
+    reset,
+    tick,
+  } = useTimerStore();
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -107,7 +110,7 @@ const TasksPage = () => {
         setLoading(false);
       }
     },
-    [token, user],
+    [setTasks, token, user],
   );
 
   useEffect(() => {
@@ -230,80 +233,11 @@ const TasksPage = () => {
     return `${h}:${m}:${s}`;
   };
 
-  const startCountUp = () => {
-    setIsRunning(true);
-    setElapsed(0);
-  };
-
-  const initCountdown = () => {
-    const initial = settings.focusMinutes * 60;
-    setRemaining(initial);
-    setCurrentPhase("focus");
-    setRound(1);
-  };
-
-  const startCountdown = () => {
-    initCountdown();
-    setIsRunning(true);
-  };
-
   useEffect(() => {
     if (!isRunning) return;
-    const interval = window.setInterval(() => {
-      setElapsed((prev) => (timerMode === "countup" ? prev + 1 : prev));
-      if (timerMode === "countdown") {
-        setRemaining((prev) => {
-          if (prev > 0) return prev - 1;
-
-          // phase complete, advance
-          setIsRunning(false);
-          const nextRound = currentPhase === "focus" ? round : round;
-          let nextPhase: typeof currentPhase = "focus";
-          let nextRemaining = settings.focusMinutes * 60;
-          let updatedRound = round;
-
-          if (currentPhase === "focus") {
-            updatedRound = round + 1;
-            if (updatedRound > settings.rounds) {
-              return 0; // finished all rounds
-            }
-            const isLong = updatedRound % settings.longBreakEvery === 0;
-            nextPhase = isLong ? "long_break" : "break";
-            nextRemaining = (isLong ? settings.longBreakMinutes : settings.shortBreakMinutes) * 60;
-          } else {
-            nextPhase = "focus";
-            nextRemaining = settings.focusMinutes * 60;
-          }
-
-          setCurrentPhase(nextPhase);
-          setRound(updatedRound);
-          setRemaining(nextRemaining);
-          setIsRunning(true);
-          return nextRemaining;
-        });
-      }
-    }, 1000);
-
+    const interval = window.setInterval(() => tick(), 1000);
     return () => window.clearInterval(interval);
-  }, [currentPhase, isRunning, round, settings, timerMode]);
-
-  const resetTimer = () => {
-    setIsRunning(false);
-    setElapsed(0);
-    initCountdown();
-  };
-
-  const toggleTimer = () => {
-    if (timerMode === "countup") {
-      setIsRunning((r) => !r || elapsed === 0 ? true : !r);
-    } else {
-      if (!isRunning && remaining === 0) {
-        startCountdown();
-      } else {
-        setIsRunning((r) => !r);
-      }
-    }
-  };
+  }, [isRunning, tick]);
 
   return (
     <div className="space-y-4">
@@ -311,11 +245,11 @@ const TasksPage = () => {
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-5 text-white shadow-lg">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-[0.3em] text-emerald-300">Timer</p>
-              <h3 className="text-xl font-bold">Focus / Break</h3>
-            </div>
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-[0.3em] text-emerald-300">Timer</p>
+                <h3 className="text-xl font-bold">Focus / Break</h3>
+              </div>
             <div className="flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-emerald-200">
               {timerMode === "countup" ? "Count up" : "Pomodoro"}
             </div>
@@ -358,7 +292,7 @@ const TasksPage = () => {
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
-                      onClick={() => setTimerMode("countup")}
+                      onClick={() => setMode("countup")}
                       className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
                         timerMode === "countup"
                           ? "bg-white text-slate-900 shadow"
@@ -369,7 +303,7 @@ const TasksPage = () => {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setTimerMode("countdown")}
+                      onClick={() => setMode("countdown")}
                       className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
                         timerMode === "countdown"
                           ? "bg-white text-slate-900 shadow"
@@ -380,14 +314,22 @@ const TasksPage = () => {
                     </button>
                     <button
                       type="button"
-                      onClick={toggleTimer}
+                      onClick={() => {
+                        if (timerMode === "countup") {
+                          if (!isRunning && elapsed === 0) start();
+                          else toggle();
+                        } else {
+                          if (!isRunning && remaining === 0) start();
+                          else toggle();
+                        }
+                      }}
                       className="rounded-full bg-emerald-400 px-3 py-1 text-xs font-semibold text-slate-900 shadow hover:bg-emerald-300"
                     >
                       {isRunning ? "Pause" : "Start"}
                     </button>
                     <button
                       type="button"
-                      onClick={resetTimer}
+                      onClick={reset}
                       className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white hover:bg-white/20"
                     >
                       Reset
@@ -406,27 +348,27 @@ const TasksPage = () => {
                   <Field
                     label="Focus (minutes)"
                     value={settings.focusMinutes}
-                    onChange={(v) => setSettings((s) => ({ ...s, focusMinutes: v }))}
+                    onChange={(v) => setSettings({ focusMinutes: v })}
                   />
                   <Field
                     label="Short break"
                     value={settings.shortBreakMinutes}
-                    onChange={(v) => setSettings((s) => ({ ...s, shortBreakMinutes: v }))}
+                    onChange={(v) => setSettings({ shortBreakMinutes: v })}
                   />
                   <Field
                     label="Long break"
                     value={settings.longBreakMinutes}
-                    onChange={(v) => setSettings((s) => ({ ...s, longBreakMinutes: v }))}
+                    onChange={(v) => setSettings({ longBreakMinutes: v })}
                   />
                   <Field
                     label="Rounds"
                     value={settings.rounds}
-                    onChange={(v) => setSettings((s) => ({ ...s, rounds: v }))}
+                    onChange={(v) => setSettings({ rounds: v })}
                   />
                   <Field
                     label="Long break every"
                     value={settings.longBreakEvery}
-                    onChange={(v) => setSettings((s) => ({ ...s, longBreakEvery: v }))}
+                    onChange={(v) => setSettings({ longBreakEvery: v })}
                   />
                 </div>
               </div>
@@ -532,7 +474,7 @@ const TasksPage = () => {
                 >
                   <SortableContext items={activeTasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
                     <div className="space-y-3 pb-3">
-                      {activeTasks.map((task, idx) => (
+                      {activeTasks.map((task) => (
                         <SortableTaskCard
                           key={task.id}
                           task={task}

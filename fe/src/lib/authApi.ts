@@ -1,46 +1,16 @@
+import { BaseApi } from "./baseApi";
 import type { AuthResponse } from "../types/auth";
 
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000/api";
+const authApi = new BaseApi("auth");
 
-async function request<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
-  const res = await fetch(input, init);
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(text || `Request failed with status ${res.status}`);
-  }
-  return (await res.json()) as T;
-}
+export const login = (email: string, password: string): Promise<AuthResponse> =>
+  authApi.post<AuthResponse>("login", { email, password });
 
-export async function login(email: string, password: string): Promise<AuthResponse> {
-  return request<AuthResponse>(`${API_URL}/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
-  });
-}
+export const register = (email: string, password: string, name?: string): Promise<AuthResponse> =>
+  authApi.post<AuthResponse>("register", { email, password, name });
 
-export async function register(
-  email: string,
-  password: string,
-  name?: string,
-): Promise<AuthResponse> {
-  return request<AuthResponse>(`${API_URL}/auth/register`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password, name }),
-  });
-}
+export const getMe = (userId: string): Promise<{ id: string; email: string }> =>
+  authApi.get<{ id: string; email: string }>("me", { headers: { "x-user-id": userId } });
 
-export async function getMe(userId: string): Promise<{ id: string; email: string }> {
-  return request<{ id: string; email: string }>(`${API_URL}/auth/me`, {
-    headers: { "x-user-id": userId },
-  });
-}
-
-export async function refresh(refreshToken: string): Promise<AuthResponse> {
-  return request<AuthResponse>(`${API_URL}/auth/refresh`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ refreshToken }),
-  });
-}
+export const refresh = (refreshToken: string): Promise<AuthResponse> =>
+  authApi.post<AuthResponse>("refresh", { refreshToken });
