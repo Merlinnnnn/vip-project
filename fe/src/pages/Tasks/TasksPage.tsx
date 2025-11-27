@@ -3,6 +3,7 @@ import {
   DndContext,
   PointerSensor,
   closestCenter,
+  DragOverlay,
   useSensor,
   useSensors,
   type DragEndEvent,
@@ -47,6 +48,7 @@ const TasksPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [activeDragTask, setActiveDragTask] = useState<Task | null>(null);
   const [showForm, setShowForm] = useState(false);
   const {
     mode: timerMode,
@@ -462,33 +464,55 @@ const TasksPage = () => {
               </span>
             </div>
             <div className="relative mt-4 pl-10">
-              <div className="absolute left-4 top-0 bottom-0 w-px bg-slate-200" />
+              <div className="absolute left-[10px] top-0 bottom-0 w-px bg-slate-200" />
               {activeTasks.length === 0 ? (
                 <p className="text-sm text-slate-500">No active tasks.</p>
               ) : (
-                <DndContext
-                  sensors={sensors}
-                  collisionDetection={closestCenter}
-                  onDragStart={(e) => setDraggingId(String(e.active.id))}
-                  onDragEnd={handleDragEnd}
-                >
-                  <SortableContext items={activeTasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
-                    <div className="space-y-3 pb-3">
-                      {activeTasks.map((task) => (
-                        <SortableTaskCard
-                          key={task.id}
-                          task={task}
-                          onStatusChange={handleStatusChange}
-                          onDelete={handleDelete}
-                          draggingId={draggingId}
-                        />
-                      ))}
-                    </div>
-                  </SortableContext>
-                </DndContext>
-              )}
-            </div>
-          </div>
+                    <DndContext
+                      sensors={sensors}
+                      collisionDetection={closestCenter}
+                      onDragStart={(e) => {
+                        setDraggingId(String(e.active.id));
+                        const found = activeTasks.find((t) => t.id === e.active.id);
+                        setActiveDragTask(found ?? null);
+                      }}
+                      onDragEnd={async (evt) => {
+                        await handleDragEnd(evt);
+                        setActiveDragTask(null);
+                      }}
+                      onDragCancel={() => {
+                        setDraggingId(null);
+                        setActiveDragTask(null);
+                      }}
+                    >
+                      <SortableContext items={activeTasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+                        <div className="space-y-3 pb-3">
+                          {activeTasks.map((task) => (
+                            <SortableTaskCard
+                              key={task.id}
+                              task={task}
+                              onStatusChange={handleStatusChange}
+                              onDelete={handleDelete}
+                              draggingId={draggingId}
+                            />
+                          ))}
+                        </div>
+                      </SortableContext>
+                      <DragOverlay dropAnimation={null}>
+                        {activeDragTask ? (
+                          <SortableTaskCard
+                            task={activeDragTask}
+                            onStatusChange={handleStatusChange}
+                            onDelete={handleDelete}
+                            draggingId={draggingId}
+                            isOverlay
+                          />
+                        ) : null}
+                      </DragOverlay>
+                    </DndContext>
+                  )}
+                </div>
+              </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="flex items-center justify-between">
@@ -564,6 +588,7 @@ type SortableTaskProps = {
   draggingId: string | null;
   onStatusChange: (id: string, status: TaskStatus) => void;
   onDelete: (id: string) => void;
+  isOverlay?: boolean;
 };
 
 const SortableTaskCard = ({
@@ -571,9 +596,11 @@ const SortableTaskCard = ({
   draggingId,
   onStatusChange,
   onDelete,
+  isOverlay,
 }: SortableTaskProps) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id,
+    disabled: isOverlay,
   });
 
   const style = {
@@ -594,12 +621,12 @@ const SortableTaskCard = ({
       style={style}
       {...attributes}
       {...listeners}
-      className={`group relative rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 shadow-sm transition ${
+      className={`group relative w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 shadow-sm transition ${
         draggingId === task.id || isDragging ? "ring-2 ring-blue-300 shadow-md" : "hover:border-emerald-200"
-      }`}
+      } ${isOverlay ? "cursor-grabbing" : ""}`}
     >
       <div
-        className={`absolute left-[10px] top-2 h-3 w-3 rounded-full border-2 shadow-sm ${bulletColor}`}
+        className={`absolute left-[-37px] top-2 h-3 w-3 rounded-full border-2 shadow-sm ${bulletColor}`}
       />
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">

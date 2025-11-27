@@ -32,6 +32,7 @@ export class PrismaTaskRepository extends TaskRepository {
   }
 
   async create(task: Task): Promise<Task> {
+    const nextPriority = await this.getNextPriority(task.userId);
     const created = await prisma.task.create({
       data: {
         id: task.id,
@@ -39,7 +40,7 @@ export class PrismaTaskRepository extends TaskRepository {
         title: task.title,
         description: task.description,
         status: task.status,
-        priority: task.priority
+        priority: nextPriority
       } as any
     });
     return mapToDomain(created);
@@ -55,10 +56,38 @@ export class PrismaTaskRepository extends TaskRepository {
         priority: task.priority
       } as any
     });
+    await this.normalizePriorities(task.userId);
     return mapToDomain(updated);
   }
 
   async delete(id: UUID, userId: UUID): Promise<void> {
     await prisma.task.deleteMany({ where: { id, userId } });
+    await this.normalizePriorities(userId);
+  }
+
+  private async getNextPriority(userId: UUID): Promise<number> {
+    const agg = await prisma.task.aggregate({
+      where: { userId },
+      _max: { priority: true }
+    });
+    const currentMax = agg._max.priority ?? 0;
+    return currentMax + 1;
+  }
+
+  private async normalizePriorities(userId: UUID): Promise<void> {
+    await prisma.$executeRawUnsafe(
+      `
+      WITH ordered AS (
+        SELECT id, ROW_NUMBER() OVER (ORDER BY priority, "createdAt") AS rn
+        FROM "Task"
+        WHERE "userId" = $1
+      )
+      UPDATE "Task" t
+      SET priority = o.rn
+      FROM ordered o
+      WHERE t.id = o.id;
+    `,
+      userId
+    );
   }
 }

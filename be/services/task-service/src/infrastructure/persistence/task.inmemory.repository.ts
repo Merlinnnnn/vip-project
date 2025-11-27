@@ -22,22 +22,31 @@ export class InMemoryTaskRepository extends TaskRepository {
 
   async create(task: Task): Promise<Task> {
     const id = task.id || randomUUID();
+    const nextPriority =
+      Math.max(
+        0,
+        ...Array.from(this.tasks.values())
+          .filter((t) => t.userId === task.userId)
+          .map((t) => t.priority ?? 0)
+      ) + 1;
     const toSave = new Task(
       id,
       task.userId,
       task.title,
       task.description,
       task.status,
-      task.priority,
+      nextPriority,
       task.createdAt,
       task.updatedAt
     );
     this.tasks.set(id, toSave);
+    await this.normalize(task.userId);
     return toSave;
   }
 
   async update(task: Task): Promise<Task> {
     this.tasks.set(task.id, task);
+    await this.normalize(task.userId);
     return task;
   }
 
@@ -46,5 +55,14 @@ export class InMemoryTaskRepository extends TaskRepository {
     if (task && task.userId === userId) {
       this.tasks.delete(id);
     }
+    await this.normalize(userId);
+  }
+
+  private async normalize(userId: UUID): Promise<void> {
+    const ordered = Array.from(this.tasks.values())
+      .filter((t) => t.userId === userId)
+      .sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0))
+      .map((t, idx) => ({ ...t, priority: idx + 1 }));
+    ordered.forEach((t) => this.tasks.set(t.id, new Task(t.id, t.userId, t.title, t.description, t.status, t.priority, t.createdAt, t.updatedAt)));
   }
 }
