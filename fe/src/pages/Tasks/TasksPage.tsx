@@ -632,9 +632,9 @@ const SortableTaskCard = ({
         <div className="min-w-0 space-y-1">
           <p className="text-sm font-semibold text-slate-900">{task.title}</p>
           {task.description ? <p className="text-xs text-slate-600">{task.description}</p> : null}
-          <p className="text-[11px] uppercase tracking-wide text-slate-400">
+          {/* <p className="text-[11px] uppercase tracking-wide text-slate-400">
             Priority: {task.priority ?? "-"}
-          </p>
+          </p> */}
         </div>
         <div className="flex flex-col items-end gap-2">
           <span className="rounded-full bg-white px-3 py-1 text-[11px] font-semibold text-slate-700">
