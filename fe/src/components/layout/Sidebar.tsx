@@ -10,7 +10,7 @@ const links = [
 
 const Sidebar = () => {
   return (
-    <aside className="hidden min-h-screen w-64 flex-col bg-slate-900 text-white md:flex">
+    <aside className="hidden md:flex md:fixed md:inset-y-0 md:left-0 md:w-64 flex-shrink-0 flex-col overflow-y-auto bg-slate-900 text-white">
       <div className="px-6 py-5">
         <div className="text-xs uppercase tracking-[0.2em] text-slate-400">
           Focus Lab
