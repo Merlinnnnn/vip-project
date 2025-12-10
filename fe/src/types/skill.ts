@@ -1,6 +1,8 @@
 export type Skill = {
-  id: number;
+  id: string;
   name: string;
-  hours: number;
-  targetHours: number;
+  totalMinutes: number;
+  targetMinutes: number;
+  createdAt?: string;
+  updatedAt?: string;
 };

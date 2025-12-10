@@ -14,8 +14,10 @@ import Card from "../../components/common/Card";
 import PageTitle from "../../components/common/PageTitle";
 import TaskList from "../../components/tasks/TaskList";
 import { listTasks, updateTask } from "../../lib/tasksApi";
+import { listSkills } from "../../lib/skillsApi";
 import { useAuth } from "../../routes/AuthContext";
 import { useTasksStore } from "../../store/useTasksStore";
+import { useSkillsStore } from "../../store/useSkillsStore";
 import type { Task, TaskStatus } from "../../types/task";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend);
@@ -43,6 +45,7 @@ const formatDayLabel = (date: Date) =>
 const DashboardPage = () => {
   const { user, token } = useAuth();
   const { tasks, setTasks } = useTasksStore();
+  const { skills, setSkills } = useSkillsStore();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -63,9 +66,23 @@ const DashboardPage = () => {
     [setTasks, token, user],
   );
 
+  const loadSkills = useMemo(
+    () => async () => {
+      if (!user) return;
+      try {
+        const data = await listSkills({ userId: user.id, token });
+        setSkills(data);
+      } catch (err) {
+        setError((err as Error).message);
+      }
+    },
+    [setSkills, token, user],
+  );
+
   useEffect(() => {
     void loadTasks();
-  }, [loadTasks]);
+    void loadSkills();
+  }, [loadSkills, loadTasks]);
 
   const handleStatusChange = async (id: string, status: TaskStatus) => {
     if (!user) return;
@@ -117,6 +134,14 @@ const DashboardPage = () => {
     }));
   }, [tasks]);
 
+  const skillNames = useMemo(() => {
+    const map: Record<string, string> = {};
+    skills.forEach((s) => {
+      map[s.id] = s.name;
+    });
+    return map;
+  }, [skills]);
+
   const timeStats = useMemo(() => {
     const doneDurations = tasks
       .filter((t) => t.status === "done")
@@ -163,15 +188,6 @@ const DashboardPage = () => {
       return end?.getMonth() === month && end.getFullYear() === year;
     }).length;
   }, [tasks]);
-
-  const timelinePeak = useMemo(
-    () =>
-      weeklyActivity.reduce(
-        (max, day) => Math.max(max, day.created, day.done),
-        1,
-      ),
-    [weeklyActivity],
-  );
 
   const completionRate = useMemo(
     () => (tasks.length ? Math.round((statusStats.done / tasks.length) * 100) : 0),
@@ -386,7 +402,7 @@ const DashboardPage = () => {
       {error ? <p className="text-sm text-rose-600">{error}</p> : null}
       {loading ? <p className="text-sm text-slate-600">Dang tai tasks...</p> : null}
 
-      <TaskList tasks={tasks} onStatusChange={handleStatusChange} />
+      <TaskList tasks={tasks} onStatusChange={handleStatusChange} skillNames={skillNames} />
     </div>
   );
 };

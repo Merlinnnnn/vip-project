@@ -25,6 +25,15 @@ app.use(
   })
 );
 
+app.use(
+  '/skills',
+  createProxyMiddleware({
+    target: 'http://localhost:3001',
+    changeOrigin: true,
+    pathRewrite: { '^/skills': '/api/skills' }
+  })
+);
+
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
 app.listen(PORT, () => {

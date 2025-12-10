@@ -5,4 +5,6 @@ export type UpdateTaskDto = {
   description?: string | null;
   status?: TaskStatus;
   priority?: number;
+  learningMinutes?: number;
+  skillId?: string | null;
 };

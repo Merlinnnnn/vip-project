@@ -36,6 +36,8 @@ export class InMemoryTaskRepository extends TaskRepository {
       task.description,
       task.status,
       nextPriority,
+      task.learningMinutes ?? 0,
+      task.skillId ?? null,
       task.createdAt,
       task.updatedAt
     );
@@ -63,6 +65,22 @@ export class InMemoryTaskRepository extends TaskRepository {
       .filter((t) => t.userId === userId)
       .sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0))
       .map((t, idx) => ({ ...t, priority: idx + 1 }));
-    ordered.forEach((t) => this.tasks.set(t.id, new Task(t.id, t.userId, t.title, t.description, t.status, t.priority, t.createdAt, t.updatedAt)));
+    ordered.forEach((t) =>
+      this.tasks.set(
+        t.id,
+        new Task(
+          t.id,
+          t.userId,
+          t.title,
+          t.description,
+          t.status,
+          t.priority,
+          t.learningMinutes,
+          t.skillId ?? null,
+          t.createdAt,
+          t.updatedAt
+        )
+      )
+    );
   }
 }

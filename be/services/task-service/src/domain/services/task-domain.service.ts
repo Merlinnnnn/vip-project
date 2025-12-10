@@ -10,7 +10,7 @@ export class TaskDomainService {
 
   updateTask(
     task: Task,
-    data: Partial<Pick<Task, 'title' | 'description' | 'status' | 'priority'>>
+    data: Partial<Pick<Task, 'title' | 'description' | 'status' | 'priority' | 'learningMinutes' | 'skillId'>>
   ) {
     if (data.title !== undefined) task.title = data.title;
     if (data.description !== undefined) task.description = data.description;
@@ -20,6 +20,15 @@ export class TaskDomainService {
     }
     if (data.priority !== undefined) {
       task.priority = data.priority;
+    }
+    if (data.learningMinutes !== undefined) {
+      if (data.learningMinutes < 0) {
+        throw new Error('learningMinutes cannot be negative');
+      }
+      task.learningMinutes = data.learningMinutes;
+    }
+    if (data.skillId !== undefined) {
+      task.skillId = data.skillId;
     }
     task.updatedAt = new Date();
     return task;

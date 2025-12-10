@@ -6,6 +6,8 @@ type TaskInput = {
   description?: string | null;
   status?: TaskStatus;
   priority?: number;
+  learningMinutes?: number;
+  skillId?: string | null;
 };
 
 type AuthHeaders = {

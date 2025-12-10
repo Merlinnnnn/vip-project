@@ -7,6 +7,8 @@ export type Task = {
   description?: string | null;
   status: TaskStatus;
   priority?: number;
+  learningMinutes?: number;
+  skillId?: string | null;
   createdAt?: string;
   updatedAt?: string;
 };

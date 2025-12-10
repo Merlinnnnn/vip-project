@@ -6,9 +6,11 @@ type Props = {
 };
 
 const SkillCard = ({ skill }: Props) => {
+  const hours = Math.round((skill.totalMinutes / 60) * 10) / 10;
+  const targetHours = Math.round((skill.targetMinutes / 60) * 10) / 10;
   const percent = Math.min(
     100,
-    Math.round((skill.hours / skill.targetHours) * 100),
+    Math.round((skill.totalMinutes / Math.max(1, skill.targetMinutes)) * 100),
   );
 
   return (
@@ -22,8 +24,8 @@ const SkillCard = ({ skill }: Props) => {
     >
       <div className="space-y-3 text-sm">
         <div className="flex justify-between text-slate-700">
-          <span>{skill.hours}h logged</span>
-          <span>Goal: {skill.targetHours}h</span>
+          <span>{hours}h logged</span>
+          <span>Goal: {targetHours}h</span>
         </div>
         <div className="h-2 overflow-hidden rounded-full bg-slate-100">
           <div
@@ -32,7 +34,7 @@ const SkillCard = ({ skill }: Props) => {
           />
         </div>
         <p className="text-xs text-slate-500">
-          Keep compounding—small sessions add up to 10,000h.
+          Keep compounding small sessions add up to 10,000h.
         </p>
       </div>
     </Card>

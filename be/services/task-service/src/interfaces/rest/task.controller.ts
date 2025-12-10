@@ -39,7 +39,11 @@ export class TaskController {
       if (!userId) return;
       const task = await this.createTask.execute(userId, {
         title: req.body.title,
-        description: req.body.description
+        description: req.body.description,
+        status: req.body.status,
+        priority: req.body.priority,
+        learningMinutes: req.body.learningMinutes,
+        skillId: req.body.skillId
       });
       res.status(201).json(task);
     } catch (err) {

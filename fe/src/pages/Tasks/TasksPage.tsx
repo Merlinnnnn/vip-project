@@ -18,17 +18,21 @@ import { CSS } from "@dnd-kit/utilities";
 import PageTitle from "../../components/common/PageTitle";
 import type { Task, TaskStatus } from "../../types/task";
 import { createTask, deleteTask, listTasks, updateTask } from "../../lib/tasksApi";
+import { listSkills } from "../../lib/skillsApi";
 import { useAuth } from "../../routes/AuthContext";
 import { useTasksStore } from "../../store/useTasksStore";
+import { useSkillsStore } from "../../store/useSkillsStore";
 import { useTimerStore } from "../../store/useTimerStore";
 
 type FormState = {
   title: string;
   description: string;
   status: TaskStatus;
+  skillId: string;
+  learningMinutes: number;
 };
 
-const defaultForm: FormState = { title: "", description: "", status: "todo" };
+const defaultForm: FormState = { title: "", description: "", status: "todo", skillId: "", learningMinutes: 0 };
 
 const statusLabel = (status: TaskStatus) =>
   status === "in_progress" ? "In progress" : status === "done" ? "Done" : "To do";
@@ -43,8 +47,10 @@ const normalizeTasks = (list: Task[]) => {
 const TasksPage = () => {
   const { user, token } = useAuth();
   const { tasks, setTasks, removeTask } = useTasksStore();
+  const { skills, setSkills } = useSkillsStore();
   const [form, setForm] = useState<FormState>(defaultForm);
   const [loading, setLoading] = useState(false);
+  const [skillsLoading, setSkillsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -98,6 +104,14 @@ const TasksPage = () => {
     [tasks],
   );
 
+  const skillNames = useMemo(() => {
+    const map: Record<string, string> = {};
+    skills.forEach((s) => {
+      map[s.id] = s.name;
+    });
+    return map;
+  }, [skills]);
+
   const load = useMemo(
     () => async () => {
       if (!user) return;
@@ -119,11 +133,33 @@ const TasksPage = () => {
     void load();
   }, [load]);
 
+  const loadSkills = useMemo(
+    () => async () => {
+      if (!user) return;
+      try {
+        setSkillsLoading(true);
+        setError(null);
+        const data = await listSkills({ userId: user.id, token });
+        setSkills(data);
+      } catch (err) {
+        setError((err as Error).message);
+      } finally {
+        setSkillsLoading(false);
+      }
+    },
+    [setSkills, token, user],
+  );
+
+  useEffect(() => {
+    void loadSkills();
+  }, [loadSkills]);
+
   const handleCreate = async () => {
     if (!form.title.trim()) {
       setError("Title is required");
       return;
     }
+    const learningMinutes = Math.max(0, Number(form.learningMinutes) || 0);
     try {
       setSaving(true);
       setError(null);
@@ -138,10 +174,15 @@ const TasksPage = () => {
           description: form.description.trim() || null,
           status: form.status,
           priority: tasks.filter((t) => t.status !== "done").length + 1,
+          learningMinutes,
+          skillId: form.skillId || null,
         },
       );
       setTasks(normalizeTasks([...tasks, created]));
-      setForm(defaultForm);
+      if (form.skillId) {
+        void loadSkills();
+      }
+      setForm((prev) => ({ ...defaultForm, skillId: prev.skillId, learningMinutes: prev.learningMinutes }));
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -171,12 +212,16 @@ const TasksPage = () => {
         setError("You need to log in again.");
         return;
       }
+      const targetTask = tasks.find((t) => t.id === id);
       const prev = tasks;
       await deleteTask({ userId: user.id, token }, id);
       removeTask(id);
       const next = normalizeTasks(tasks.filter((t) => t.id !== id));
       setTasks(next);
       await syncChangedPriorities(prev, next);
+      if (targetTask?.skillId) {
+        void loadSkills();
+      }
     } catch (err) {
       setError((err as Error).message);
     }
@@ -433,6 +478,34 @@ const TasksPage = () => {
                   ))}
                 </div>
               </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-600">Skill (optional)</label>
+                <select
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
+                  value={form.skillId}
+                  disabled={skillsLoading}
+                  onChange={(e) => setForm((f) => ({ ...f, skillId: e.target.value }))}
+                >
+                  <option value="">-- No skill --</option>
+                  {skills.map((skill) => (
+                    <option key={skill.id} value={skill.id}>
+                      {skill.name}
+                    </option>
+                  ))}
+                </select>
+                {skillsLoading ? <p className="mt-1 text-xs text-slate-500">Loading skills...</p> : null}
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-600">Thời gian học (phút)</label>
+                <input
+                  type="number"
+                  min={0}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
+                  value={form.learningMinutes}
+                  onChange={(e) => setForm((f) => ({ ...f, learningMinutes: Number(e.target.value) || 0 }))}
+                  placeholder="Ví dụ: 90"
+                />
+              </div>
               <div className="flex items-end">
                 <button
                   type="submit"
@@ -494,6 +567,7 @@ const TasksPage = () => {
                               onStatusChange={handleStatusChange}
                               onDelete={handleDelete}
                               draggingId={draggingId}
+                              skillNames={skillNames}
                             />
                           ))}
                         </div>
@@ -505,6 +579,7 @@ const TasksPage = () => {
                             onStatusChange={handleStatusChange}
                             onDelete={handleDelete}
                             draggingId={draggingId}
+                            skillNames={skillNames}
                             isOverlay
                           />
                         ) : null}
@@ -541,6 +616,13 @@ const TasksPage = () => {
                         </p>
                         {task.description ? (
                           <p className="text-xs text-slate-600">{task.description}</p>
+                        ) : null}
+                        {task.skillId || task.learningMinutes ? (
+                          <p className="text-[11px] uppercase tracking-wide text-slate-500">
+                            {task.skillId ? `Skill: ${skillNames[task.skillId] ?? task.skillId}` : null}
+                            {task.skillId && task.learningMinutes ? " • " : null}
+                            {task.learningMinutes ? `${task.learningMinutes} phút` : null}
+                          </p>
                         ) : null}
                         <p className="text-[11px] uppercase tracking-wide text-slate-400">
                           Priority: {task.priority ?? "-"}
@@ -589,6 +671,7 @@ type SortableTaskProps = {
   onStatusChange: (id: string, status: TaskStatus) => void;
   onDelete: (id: string) => void;
   isOverlay?: boolean;
+  skillNames?: Record<string, string>;
 };
 
 const SortableTaskCard = ({
@@ -597,6 +680,7 @@ const SortableTaskCard = ({
   onStatusChange,
   onDelete,
   isOverlay,
+  skillNames,
 }: SortableTaskProps) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id,
@@ -614,6 +698,8 @@ const SortableTaskCard = ({
       : task.status === "in_progress"
         ? "bg-blue-500 border-blue-500"
         : "bg-white border-slate-300";
+  const skillLabel = task.skillId ? skillNames?.[task.skillId] ?? task.skillId : null;
+  const learning = task.learningMinutes ?? 0;
 
   return (
     <div
@@ -632,6 +718,13 @@ const SortableTaskCard = ({
         <div className="min-w-0 space-y-1">
           <p className="text-sm font-semibold text-slate-900">{task.title}</p>
           {task.description ? <p className="text-xs text-slate-600">{task.description}</p> : null}
+          {skillLabel || learning ? (
+            <p className="text-[11px] uppercase tracking-wide text-slate-500">
+              {skillLabel ? `Skill: ${skillLabel}` : null}
+              {skillLabel && learning ? " • " : null}
+              {learning ? `${learning} phút` : null}
+            </p>
+          ) : null}
           {/* <p className="text-[11px] uppercase tracking-wide text-slate-400">
             Priority: {task.priority ?? "-"}
           </p> */}

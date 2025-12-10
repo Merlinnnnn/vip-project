@@ -11,6 +11,8 @@ function mapToDomain(task: any): Task {
     task.description ?? null,
     task.status,
     task.priority,
+    task.learningMinutes ?? 0,
+    task.skillId ?? null,
     task.createdAt,
     task.updatedAt
   );
@@ -40,7 +42,9 @@ export class PrismaTaskRepository extends TaskRepository {
         title: task.title,
         description: task.description,
         status: task.status,
-        priority: nextPriority
+        priority: nextPriority,
+        learningMinutes: task.learningMinutes,
+        skillId: task.skillId
       } as any
     });
     return mapToDomain(created);
@@ -53,7 +57,9 @@ export class PrismaTaskRepository extends TaskRepository {
         title: task.title,
         description: task.description,
         status: task.status,
-        priority: task.priority
+        priority: task.priority,
+        learningMinutes: task.learningMinutes,
+        skillId: task.skillId
       } as any
     });
     await this.normalizePriorities(task.userId);

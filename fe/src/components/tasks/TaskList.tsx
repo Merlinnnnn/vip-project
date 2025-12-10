@@ -5,6 +5,7 @@ type Props = {
   tasks: Task[];
   onStatusChange?: (id: string, status: Task["status"]) => void;
   onDelete?: (id: string) => void;
+  skillNames?: Record<string, string>;
 };
 
 const statusStyles: Record<Task["status"], string> = {
@@ -13,7 +14,7 @@ const statusStyles: Record<Task["status"], string> = {
   done: "bg-emerald-50 text-emerald-700",
 };
 
-const TaskList = ({ tasks, onStatusChange, onDelete }: Props) => {
+const TaskList = ({ tasks, onStatusChange, onDelete, skillNames }: Props) => {
   return (
     <Card title="Tasks">
       <div className="space-y-3">
@@ -26,6 +27,13 @@ const TaskList = ({ tasks, onStatusChange, onDelete }: Props) => {
               <p className="font-semibold text-slate-900">{task.title}</p>
               {task.description ? (
                 <p className="text-xs text-slate-600">{task.description}</p>
+              ) : null}
+              {task.skillId || task.learningMinutes ? (
+                <p className="text-[11px] uppercase tracking-wide text-slate-500">
+                  {task.skillId ? `Skill: ${skillNames?.[task.skillId] ?? task.skillId}` : null}
+                  {task.skillId && task.learningMinutes ? " • " : null}
+                  {task.learningMinutes ? `${task.learningMinutes} phút` : null}
+                </p>
               ) : null}
               {task.createdAt ? (
                 <p className="text-xs text-slate-500">Created {new Date(task.createdAt).toLocaleString()}</p>
