@@ -6,4 +6,6 @@ export abstract class SkillRepository {
   abstract findById(id: UUID, userId: UUID): Promise<Skill | null>;
   abstract create(skill: Skill): Promise<Skill>;
   abstract incrementTotalMinutes(id: UUID, userId: UUID, delta: number): Promise<void>;
+  abstract update(skill: Skill): Promise<Skill>;
+  abstract delete(id: UUID, userId: UUID): Promise<void>;
 }

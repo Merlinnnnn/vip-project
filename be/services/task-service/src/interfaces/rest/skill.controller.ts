@@ -1,6 +1,8 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { CreateSkillUseCase } from '../../application/use-cases/create-skill.usecase';
 import { ListSkillsUseCase } from '../../application/use-cases/list-skills.usecase';
+import { UpdateSkillUseCase } from '../../application/use-cases/update-skill.usecase';
+import { DeleteSkillUseCase } from '../../application/use-cases/delete-skill.usecase';
 import { TokenStore } from '../../infrastructure/cache/token.store';
 
 export class SkillController {
@@ -9,11 +11,15 @@ export class SkillController {
   constructor(
     private readonly createSkill: CreateSkillUseCase,
     private readonly listSkills: ListSkillsUseCase,
+    private readonly updateSkill: UpdateSkillUseCase,
+    private readonly deleteSkill: DeleteSkillUseCase,
     private readonly tokenStore?: TokenStore
   ) {
     this.router = Router();
     this.router.get('/', this.getAll);
     this.router.post('/', this.create);
+    this.router.put('/:id', this.update);
+    this.router.delete('/:id', this.remove);
   }
 
   private getAll = async (req: Request, res: Response, next: NextFunction) => {
@@ -36,6 +42,31 @@ export class SkillController {
         targetMinutes: req.body.targetMinutes
       });
       res.status(201).json(skill);
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  private update = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = await this.getUserId(req, res);
+      if (!userId) return;
+      const skill = await this.updateSkill.execute(userId, req.params.id, {
+        name: req.body.name,
+        targetMinutes: req.body.targetMinutes
+      });
+      res.json(skill);
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  private remove = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = await this.getUserId(req, res);
+      if (!userId) return;
+      await this.deleteSkill.execute(userId, req.params.id);
+      res.status(204).send();
     } catch (err) {
       next(err);
     }

@@ -27,6 +27,18 @@ export class PrismaSkillRepository extends SkillRepository {
     return skill ? mapToDomain(skill) : null;
   }
 
+  async update(skill: Skill): Promise<Skill> {
+    const updated = await client.skill.update({
+      where: { id: skill.id },
+      data: {
+        name: skill.name,
+        targetMinutes: skill.targetMinutes,
+        totalMinutes: skill.totalMinutes
+      }
+    });
+    return mapToDomain(updated);
+  }
+
   async create(skill: Skill): Promise<Skill> {
     const created = await client.skill.create({
       data: {
@@ -49,5 +61,13 @@ export class PrismaSkillRepository extends SkillRepository {
     if (!res.count) {
       throw new Error('Skill not found');
     }
+  }
+
+  async delete(id: UUID, userId: UUID): Promise<void> {
+    await client.task.updateMany({
+      where: { skillId: id, userId },
+      data: { skillId: null }
+    });
+    await client.skill.deleteMany({ where: { id, userId } });
   }
 }

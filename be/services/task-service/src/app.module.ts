@@ -9,6 +9,8 @@ import { DeleteTaskUseCase } from './application/use-cases/delete-task.usecase';
 import { ListTasksUseCase } from './application/use-cases/list-tasks.usecase';
 import { CreateSkillUseCase } from './application/use-cases/create-skill.usecase';
 import { ListSkillsUseCase } from './application/use-cases/list-skills.usecase';
+import { UpdateSkillUseCase } from './application/use-cases/update-skill.usecase';
+import { DeleteSkillUseCase } from './application/use-cases/delete-skill.usecase';
 import { TaskController } from './interfaces/rest/task.controller';
 import { TokenStore } from './infrastructure/cache/token.store';
 import { AuthController } from './interfaces/rest/auth.controller';
@@ -28,10 +30,12 @@ export function createApp() {
   const listTasks = new ListTasksUseCase(repo);
   const createSkill = new CreateSkillUseCase(skillRepo);
   const listSkills = new ListSkillsUseCase(skillRepo);
+  const updateSkill = new UpdateSkillUseCase(skillRepo);
+  const deleteSkill = new DeleteSkillUseCase(skillRepo);
   const tokenStore = new TokenStore();
 
   const tasksController = new TaskController(createTask, updateTask, deleteTask, listTasks, tokenStore);
-  const skillsController = new SkillController(createSkill, listSkills, tokenStore);
+  const skillsController = new SkillController(createSkill, listSkills, updateSkill, deleteSkill, tokenStore);
   const authController = new AuthController(tokenStore);
 
   app.use('/api/tasks', tasksController.router);

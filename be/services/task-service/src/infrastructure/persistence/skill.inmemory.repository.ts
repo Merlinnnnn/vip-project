@@ -17,6 +17,24 @@ export class InMemorySkillRepository extends SkillRepository {
     return skill && skill.userId === userId ? skill : null;
   }
 
+  async update(skill: Skill): Promise<Skill> {
+    const existing = await this.findById(skill.id, skill.userId);
+    if (!existing) {
+      throw new Error('Skill not found');
+    }
+    const updated = new Skill(
+      skill.id,
+      skill.userId,
+      skill.name,
+      skill.totalMinutes,
+      skill.targetMinutes,
+      existing.createdAt,
+      new Date()
+    );
+    this.skills.set(skill.id, updated);
+    return updated;
+  }
+
   async create(skill: Skill): Promise<Skill> {
     const id = skill.id || randomUUID();
     const toSave = new Skill(
@@ -49,5 +67,12 @@ export class InMemorySkillRepository extends SkillRepository {
       new Date()
     );
     this.skills.set(skill.id, updated);
+  }
+
+  async delete(id: UUID, userId: UUID): Promise<void> {
+    const existing = await this.findById(id, userId);
+    if (!existing) return;
+    this.skills.delete(id);
+    // tasks referencing skill are not tracked here
   }
 }
