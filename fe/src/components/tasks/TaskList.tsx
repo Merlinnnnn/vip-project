@@ -3,7 +3,6 @@ import type { Task } from "../../types/task";
 
 type Props = {
   tasks: Task[];
-  onStatusChange?: (id: string, status: Task["status"]) => void;
   onDelete?: (id: string) => void;
   skillNames?: Record<string, string>;
 };
@@ -14,7 +13,7 @@ const statusStyles: Record<Task["status"], string> = {
   done: "bg-emerald-50 text-emerald-700",
 };
 
-const TaskList = ({ tasks, onStatusChange, onDelete, skillNames }: Props) => {
+const TaskList = ({ tasks, onDelete, skillNames }: Props) => {
   return (
     <Card title="Tasks">
       <div className="space-y-3">
@@ -39,36 +38,15 @@ const TaskList = ({ tasks, onStatusChange, onDelete, skillNames }: Props) => {
                 <p className="text-xs text-slate-500">Created {new Date(task.createdAt).toLocaleString()}</p>
               ) : null}
             </div>
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-1 py-1 text-xs">
-                {(["todo", "in_progress", "done"] as Task["status"][]).map((st) => (
-                  <button
-                    key={st}
-                    type="button"
-                    className={`rounded px-2 py-1 font-semibold transition ${
-                      task.status === st
-                        ? st === "done"
-                          ? "bg-emerald-100 text-emerald-800"
-                          : st === "in_progress"
-                            ? "bg-blue-100 text-blue-800"
-                            : "bg-amber-100 text-amber-800"
-                        : "text-slate-600 hover:bg-slate-100"
-                    }`}
-                    onClick={() => onStatusChange?.(task.id, st)}
-                  >
-                    {st === "in_progress" ? "In progress" : st === "done" ? "Done" : "To do"}
-                  </button>
-                ))}
-              </div>
-              <span
-                className={`rounded-full px-3 py-1 text-xs font-semibold ${statusStyles[task.status]}`}
-              >
+            <div className="flex items-center gap-3">
+              <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusStyles[task.status]}`}>
                 {task.status === "in_progress"
                   ? "In progress"
                   : task.status === "done"
                     ? "Done"
                     : "To do"}
               </span>
+              <span className="text-[11px] text-slate-500">Trang thai cap nhat qua dong ho task.</span>
               {onDelete ? (
                 <button
                   type="button"

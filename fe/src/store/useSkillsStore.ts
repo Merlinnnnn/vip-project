@@ -6,6 +6,8 @@ type SkillsState = {
   setSkills: (skills: Skill[]) => void;
   addSkill: (skill: Skill) => void;
   bumpMinutes: (skillId: string, delta: number) => void;
+  updateSkill: (skill: Skill) => void;
+  removeSkill: (id: string) => void;
   clear: () => void;
 };
 
@@ -23,6 +25,14 @@ export const useSkillsStore = create<SkillsState>((set) => ({
           ? { ...s, totalMinutes: Math.max(0, (s.totalMinutes ?? 0) + delta) }
           : s,
       ),
+    })),
+  updateSkill: (skill) =>
+    set((state) => ({
+      skills: state.skills.map((s) => (s.id === skill.id ? skill : s)),
+    })),
+  removeSkill: (id) =>
+    set((state) => ({
+      skills: state.skills.filter((s) => s.id !== id),
     })),
   clear: () => set({ skills: [] }),
 }));

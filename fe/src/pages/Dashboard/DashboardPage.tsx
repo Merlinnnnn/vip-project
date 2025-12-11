@@ -13,7 +13,7 @@ import {
 import Card from "../../components/common/Card";
 import PageTitle from "../../components/common/PageTitle";
 import TaskList from "../../components/tasks/TaskList";
-import { listTasks, updateTask } from "../../lib/tasksApi";
+import { listTasks } from "../../lib/tasksApi";
 import { listSkills } from "../../lib/skillsApi";
 import { useAuth } from "../../routes/AuthContext";
 import { useTasksStore } from "../../store/useTasksStore";
@@ -83,17 +83,6 @@ const DashboardPage = () => {
     void loadTasks();
     void loadSkills();
   }, [loadSkills, loadTasks]);
-
-  const handleStatusChange = async (id: string, status: TaskStatus) => {
-    if (!user) return;
-    try {
-      const updated = await updateTask({ userId: user.id, token }, id, { status });
-      const next = normalizeTasks([...tasks.filter((t) => t.id !== id), updated]);
-      setTasks(next);
-    } catch (err) {
-      setError((err as Error).message);
-    }
-  };
 
   const statusStats = useMemo(() => {
     return tasks.reduce(
@@ -402,7 +391,7 @@ const DashboardPage = () => {
       {error ? <p className="text-sm text-rose-600">{error}</p> : null}
       {loading ? <p className="text-sm text-slate-600">Dang tai tasks...</p> : null}
 
-      <TaskList tasks={tasks} onStatusChange={handleStatusChange} skillNames={skillNames} />
+      <TaskList tasks={tasks} skillNames={skillNames} />
     </div>
   );
 };

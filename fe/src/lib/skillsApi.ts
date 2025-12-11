@@ -27,3 +27,13 @@ export const createSkill = (auth: AuthHeaders, input: SkillInput): Promise<Skill
   skillApi.post<Skill>("", input, {
     headers: withAuthHeaders(auth, auth.token ? { Authorization: `Bearer ${auth.token}` } : undefined),
   });
+
+export const updateSkill = (auth: AuthHeaders, id: string, input: Partial<SkillInput>): Promise<Skill> =>
+  skillApi.put<Skill>(id, input, {
+    headers: withAuthHeaders(auth, auth.token ? { Authorization: `Bearer ${auth.token}` } : undefined),
+  });
+
+export const deleteSkill = (auth: AuthHeaders, id: string): Promise<void> =>
+  skillApi.delete<void>(id, {
+    headers: withAuthHeaders(auth, auth.token ? { Authorization: `Bearer ${auth.token}` } : undefined),
+  });
