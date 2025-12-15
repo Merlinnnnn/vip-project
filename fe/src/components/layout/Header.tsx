@@ -1,17 +1,36 @@
+import type { FC } from "react";
 import { useAuth } from "../../routes/AuthContext";
 
-const Header = () => {
+type Props = {
+  isSidebarCollapsed: boolean;
+  onToggleSidebar: () => void;
+};
+
+const Header: FC<Props> = ({ isSidebarCollapsed, onToggleSidebar }) => {
   const { logout } = useAuth();
 
   return (
-    <header className="flex items-center justify-between gap-4 border-b border-slate-200 bg-white px-6 py-4">
-      <div>
-        <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
-          Today
-        </p>
-        <p className="text-lg font-semibold text-slate-900">
-          Keep your streak alive
-        </p>
+    <header className="flex items-center justify-between gap-4 border-b border-slate-200 bg-white px-4 py-4 md:px-6">
+      <div className="flex items-center gap-3">
+        <button
+          onClick={onToggleSidebar}
+          className="hidden md:inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-700 transition hover:bg-slate-100"
+          aria-label="Toggle sidebar"
+        >
+          <span className="flex flex-col gap-1.5">
+            <span className="h-0.5 w-5 bg-slate-700" />
+            <span className="h-0.5 w-5 bg-slate-700" />
+            <span className="h-0.5 w-5 bg-slate-700" />
+          </span>
+        </button>
+        <div>
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
+            Today
+          </p>
+          <p className="text-lg font-semibold text-slate-900">
+            {isSidebarCollapsed ? "Focus mode" : "Keep your streak alive"}
+          </p>
+        </div>
       </div>
       <div className="flex items-center gap-3">
         <div className="hidden items-center gap-2 rounded-full border border-slate-200 px-3 py-1 text-sm text-slate-700 md:flex">
