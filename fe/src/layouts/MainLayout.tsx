@@ -8,14 +8,10 @@ type Props = {
 };
 
 const MainLayout = ({ children }: Props) => {
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-
-  useEffect(() => {
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
     const stored = localStorage.getItem("sidebarCollapsed");
-    if (stored) {
-      setIsSidebarCollapsed(stored === "true");
-    }
-  }, []);
+    return stored === "true";
+  });
 
   useEffect(() => {
     localStorage.setItem("sidebarCollapsed", String(isSidebarCollapsed));

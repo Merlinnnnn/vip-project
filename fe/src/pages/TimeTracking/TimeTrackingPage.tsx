@@ -34,7 +34,6 @@ const TimeTrackingPage = () => {
   const { tasks, setTasks } = useTasksStore();
   const {
     activeTaskId,
-    activeTaskTitle,
     elapsed,
     remaining,
     requiredSeconds,
@@ -116,15 +115,25 @@ const TimeTrackingPage = () => {
 
   useEffect(() => {
     if (!user?.id) return;
-    setLoadingTasks(true);
-    setTasksError(null);
-    listTasks({ userId: user.id, token })
-      .then((data) => setTasks(data))
-      .catch((error) => {
+    let active = true;
+    const loadTasks = async () => {
+      setLoadingTasks(true);
+      setTasksError(null);
+      try {
+        const data = await listTasks({ userId: user.id, token });
+        if (active) setTasks(data);
+      } catch (error) {
+        if (!active) return;
         const message = error instanceof Error ? error.message : "Failed to load tasks";
         setTasksError(message);
-      })
-      .finally(() => setLoadingTasks(false));
+      } finally {
+        if (active) setLoadingTasks(false);
+      }
+    };
+    void loadTasks();
+    return () => {
+      active = false;
+    };
   }, [setTasks, token, user]);
 
   useEffect(() => {
@@ -191,8 +200,6 @@ const TimeTrackingPage = () => {
       start();
     }
   };
-
-  const handlePause = () => pause();
 
   const canNext = useMemo(() => {
     if (incompleteTasks.length <= 1) return false;

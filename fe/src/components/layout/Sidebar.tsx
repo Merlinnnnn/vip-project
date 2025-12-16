@@ -1,4 +1,5 @@
 import { NavLink } from "react-router-dom";
+import { Home, ListChecks, Target, Timer, Settings } from "lucide-react";
 
 type Props = {
   isCollapsed: boolean;
@@ -7,11 +8,11 @@ type Props = {
 };
 
 const links = [
-  { to: "/dashboard", label: "Dashboard", icon: "•" },
-  { to: "/tasks", label: "Tasks", icon: "•" },
-  { to: "/skills", label: "Skills", icon: "•" },
-  { to: "/time-tracking", label: "Time Tracking", icon: "•" },
-  { to: "/settings", label: "Settings", icon: "•" },
+  { to: "/dashboard", label: "Dashboard", icon: Home },
+  { to: "/tasks", label: "Tasks", icon: ListChecks },
+  { to: "/skills", label: "Skills", icon: Target },
+  { to: "/time-tracking", label: "Time Tracking", icon: Timer },
+  { to: "/settings", label: "Settings", icon: Settings },
 ];
 
 const Sidebar = ({ isCollapsed, onToggle, widthClass }: Props) => {
@@ -55,7 +56,7 @@ const Sidebar = ({ isCollapsed, onToggle, widthClass }: Props) => {
               ].join(" ")
             }
           >
-            <span className="text-lg">{item.icon}</span>
+            <item.icon className="h-5 w-5" />
             {!isCollapsed && item.label}
           </NavLink>
         ))}

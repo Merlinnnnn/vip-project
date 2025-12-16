@@ -1,28 +1,12 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
-import {
-  DndContext,
-  PointerSensor,
-  closestCenter,
-  DragOverlay,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from "@dnd-kit/core";
-import {
-  SortableContext,
-  arrayMove,
-  useSortable,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent as ReactMouseEvent } from "react";
+import { CheckSquare, Circle, Clock3, Loader2, Plus, RotateCcw, Settings2 } from "lucide-react";
 import PageTitle from "../../components/common/PageTitle";
 import type { Task, TaskStatus } from "../../types/task";
-import { createTask, deleteTask, listTasks, updateTask } from "../../lib/tasksApi";
+import { createTask, listTasks } from "../../lib/tasksApi";
 import { listSkills } from "../../lib/skillsApi";
 import { useAuth } from "../../routes/AuthContext";
 import { useTasksStore } from "../../store/useTasksStore";
 import { useSkillsStore } from "../../store/useSkillsStore";
-import { useTimerStore, type TimerMode } from "../../store/useTimerStore";
 
 type FormState = {
   title: string;
@@ -31,10 +15,31 @@ type FormState = {
   learningMinutes: number;
 };
 
-const defaultForm: FormState = { title: "", description: "", skillId: "", learningMinutes: 0 };
+type CalendarEvent = {
+  id: string;
+  title: string;
+  status: TaskStatus;
+  skillId?: string | null;
+  start: Date;
+  end: Date;
+};
 
-const statusLabel = (status: TaskStatus) =>
-  status === "in_progress" ? "In progress" : status === "done" ? "Done" : "To do";
+type DragAction =
+  | { type: "select"; dayIndex: number; startMinutes: number }
+  | { type: "drag"; eventId: string; dayIndex: number; offsetMinutes: number }
+  | { type: "resize"; eventId: string; dayIndex: number; edge: "start" | "end" };
+
+const HOURS_START = 8;
+const HOURS_END = 20;
+const MINUTE_PX = 1;
+const STORAGE_KEY = "taskCalendarPositions";
+const defaultForm: FormState = { title: "", description: "", skillId: "", learningMinutes: 60 };
+
+const statusMeta: Record<TaskStatus, { label: string; color: string; bg: string; icon: JSX.Element }> = {
+  todo: { label: "Chua lam", color: "text-amber-600", bg: "bg-amber-100", icon: <Circle size={14} /> },
+  in_progress: { label: "Dang lam", color: "text-blue-600", bg: "bg-blue-100", icon: <Clock3 size={14} /> },
+  done: { label: "Da xong", color: "text-emerald-700", bg: "bg-emerald-100", icon: <CheckSquare size={14} /> },
+};
 
 const normalizeTasks = (list: Task[]) => {
   const sorted = [...list].sort(
@@ -43,90 +48,61 @@ const normalizeTasks = (list: Task[]) => {
   return sorted.map((t, idx) => ({ ...t, priority: idx + 1 }));
 };
 
+const startOfWeek = (d: Date) => {
+  const copy = new Date(d);
+  const day = copy.getDay();
+  copy.setDate(copy.getDate() - day);
+  copy.setHours(0, 0, 0, 0);
+  return copy;
+};
+
+const addDays = (d: Date, n: number) => {
+  const copy = new Date(d);
+  copy.setDate(copy.getDate() + n);
+  return copy;
+};
+
+const fmtKey = (d: Date) => d.toISOString().slice(0, 10);
+
+const minutesSinceStart = (date: Date) => date.getHours() * 60 + date.getMinutes();
+
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
 const TasksPage = () => {
   const { user, token } = useAuth();
-  const { tasks, setTasks, removeTask } = useTasksStore();
+  const { tasks, setTasks } = useTasksStore();
   const { skills, setSkills } = useSkillsStore();
-  const [form, setForm] = useState<FormState>(defaultForm);
+
   const [loading, setLoading] = useState(false);
   const [skillsLoading, setSkillsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [draggingId, setDraggingId] = useState<string | null>(null);
-  const [activeDragTask, setActiveDragTask] = useState<Task | null>(null);
-  const [showForm, setShowForm] = useState(false);
-  const {
-    mode,
-    setMode,
-    isRunning,
-    shouldTick,
-    elapsed,
-    remaining,
-    requiredSeconds,
-    activeTaskId,
-    activeTaskTitle,
-    selectTask,
-    start,
-    pause,
-    clearTask,
-    resetCurrent,
-    tick,
-    lastCompletedTaskId,
-    clearCompletion,
-    settings,
-    setSettings,
-    pomodoroPhase,
-    pomodoroRemaining,
-    pomodoroRound,
-    pomodoroRunning,
-  } = useTimerStore();
+  const [statusFilter, setStatusFilter] = useState<Record<TaskStatus, boolean>>({
+    todo: true,
+    in_progress: true,
+    done: true,
+  });
+  const [form, setForm] = useState<FormState>(defaultForm);
+  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().slice(0, 10));
+  const [positions, setPositions] = useState<Record<string, { start: string; end: string }>>(() => {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as Record<string, { start: string; end: string }>) : {};
+  });
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { distance: 5 },
-    }),
+  const [dragAction, setDragAction] = useState<DragAction | null>(null);
+  const [hoverSelection, setHoverSelection] = useState<{ dayIndex: number; start: number; end: number } | null>(
+    null,
   );
+  const gridRef = useRef<HTMLDivElement | null>(null);
 
-  const syncChangedPriorities = async (previous: Task[], next: Task[]) => {
-    if (!user) return;
-    const prevMap = new Map(previous.map((t) => [t.id, t.priority]));
-    const changed = next.filter((t) => prevMap.get(t.id) !== t.priority);
-    if (!changed.length) return;
-    await Promise.all(
-      changed.map((t) => updateTask({ userId: user.id, token }, t.id, { priority: t.priority })),
-    );
-  };
+  const weekStart = useMemo(() => startOfWeek(new Date(selectedDate)), [selectedDate]);
+  const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
 
-  const activeTasks = useMemo(
-    () =>
-      tasks
-        .filter((t) => t.status !== "done")
-        .sort((a, b) => (a.priority ?? Number.MAX_SAFE_INTEGER) - (b.priority ?? Number.MAX_SAFE_INTEGER)),
-    [tasks],
-  );
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(positions));
+  }, [positions]);
 
-  const doneTasks = useMemo(
-    () =>
-      tasks
-        .filter((t) => t.status === "done")
-        .sort((a, b) => (a.priority ?? Number.MAX_SAFE_INTEGER) - (b.priority ?? Number.MAX_SAFE_INTEGER)),
-    [tasks],
-  );
-
-  const skillNames = useMemo(() => {
-    const map: Record<string, string> = {};
-    skills.forEach((s) => {
-      map[s.id] = s.name;
-    });
-    return map;
-  }, [skills]);
-
-  const selectedTask = useMemo(
-    () => tasks.find((task) => task.id === activeTaskId) ?? null,
-    [activeTaskId, tasks],
-  );
-
-  const load = useMemo(
+  const loadTasks = useMemo(
     () => async () => {
       if (!user) return;
       try {
@@ -144,8 +120,8 @@ const TasksPage = () => {
   );
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    void loadTasks();
+  }, [loadTasks]);
 
   const loadSkills = useMemo(
     () => async () => {
@@ -168,701 +144,440 @@ const TasksPage = () => {
     void loadSkills();
   }, [loadSkills]);
 
-  const handleCreate = async () => {
-    if (!form.title.trim()) {
-      setError("Title is required");
-      return;
-    }
-    const learningMinutes = Math.max(0, Number(form.learningMinutes) || 0);
-    try {
-      setSaving(true);
-      setError(null);
-      if (!user) {
-        setError("You need to log in again.");
+  const events: CalendarEvent[] = useMemo(() => {
+    return tasks
+      .filter((t) => statusFilter[t.status])
+      .map((task) => {
+        const stored = positions[task.id];
+        const startIso = stored?.start ?? defaultStart(task);
+        const endIso = stored?.end ?? defaultEnd(startIso, task.learningMinutes);
+        return {
+          id: task.id,
+          title: task.title,
+          status: task.status,
+          skillId: task.skillId,
+          start: new Date(startIso),
+          end: new Date(endIso),
+        };
+      });
+  }, [positions, statusFilter, tasks]);
+
+  const weekEvents = useMemo(() => {
+    const map: Record<string, CalendarEvent[]> = {};
+    weekDays.forEach((d) => {
+      map[fmtKey(d)] = [];
+    });
+    events.forEach((ev) => {
+      const key = fmtKey(ev.start);
+      if (!map[key]) map[key] = [];
+      map[key].push(ev);
+    });
+    return map;
+  }, [events, weekDays]);
+
+  const handleCreate = useMemo(
+    () => async (start: Date, end: Date) => {
+      if (!form.title.trim()) {
+        setError("Title is required");
         return;
       }
-      const created = await createTask(
-        { userId: user.id, token },
-        {
-          title: form.title.trim(),
-          description: form.description.trim() || null,
-          status: "todo",
-          priority: tasks.filter((t) => t.status !== "done").length + 1,
-          learningMinutes,
-          skillId: form.skillId || null,
-        },
-      );
-      setTasks(normalizeTasks([...tasks, created]));
-      if (form.skillId) {
-        void loadSkills();
-      }
-      setForm((prev) => ({ ...defaultForm, skillId: prev.skillId, learningMinutes: prev.learningMinutes }));
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    try {
-      if (!user) {
-        setError("You need to log in again.");
-        return;
-      }
-      const targetTask = tasks.find((t) => t.id === id);
-      const prev = tasks;
-      await deleteTask({ userId: user.id, token }, id);
-      removeTask(id);
-      const next = normalizeTasks(tasks.filter((t) => t.id !== id));
-      setTasks(next);
-      if (id === activeTaskId) {
-        clearTask();
-      }
-      await syncChangedPriorities(prev, next);
-      if (targetTask?.skillId) {
-        void loadSkills();
-      }
-    } catch (err) {
-      setError((err as Error).message);
-    }
-  };
-
-  const persistOrder = async (ordered: Task[]) => {
-    if (!user) {
-      setError("You need to log in again.");
-      return;
-    }
-    const reordered = ordered.map((task, idx) => ({ ...task, priority: idx + 1 }));
-    const newList = normalizeTasks([...reordered, ...doneTasks]);
-    setTasks(newList);
-
-    const changedActiveIds = new Set(reordered.map((t) => t.id));
-    const payload = newList.filter((t) => changedActiveIds.has(t.id));
-    try {
-      await Promise.all(
-        payload.map((task) => updateTask({ userId: user.id, token }, task.id, { priority: task.priority })),
-      );
-    } catch (err) {
-      setError((err as Error).message);
-      void load();
-    }
-  };
-
-  const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event;
-    setDraggingId(null);
-    if (!over) return;
-    if (active.id === over.id) return;
-    const oldIndex = activeTasks.findIndex((t) => t.id === active.id);
-    const newIndex = activeTasks.findIndex((t) => t.id === over.id);
-    if (oldIndex === -1 || newIndex === -1) return;
-    const reordered = arrayMove(activeTasks, oldIndex, newIndex);
-    await persistOrder(reordered);
-  };
-
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    void handleCreate();
-  };
-
-  const handlePauseTimer = () => pause();
-
-  const handleSelectTask = (task: Task) => {
-    handlePauseTimer();
-    selectTask({ id: task.id, title: task.title, requiredMinutes: task.learningMinutes ?? 0 });
-    setError(null);
-  };
-
-  const handleStartTimer = async () => {
-    if (!selectedTask) {
-      setError("Chon task de bat dau dem thoi gian.");
-      return;
-    }
-    if (mode === "countdown" && requiredSeconds === 0) {
-      setError("Task nay chua co thoi gian dem nguoc.");
-      return;
-    }
-    if (selectedTask.status === "done") {
-      setError("Task da hoan thanh, hay chon task khac.");
-      return;
-    }
-    if (!user) {
-      setError("You need to log in again.");
-      return;
-    }
-
-    try {
-      setError(null);
-      if (selectedTask.status !== "in_progress") {
-        const updated = await updateTask({ userId: user.id, token }, selectedTask.id, { status: "in_progress" });
-        const next = normalizeTasks([...tasks.filter((t) => t.id !== selectedTask.id), updated]);
-        setTasks(next);
-      }
-      start();
-    } catch (err) {
-      setError((err as Error).message);
-    }
-  };
-
-  const handleResetTimer = () => resetCurrent();
-
-  const taskRemaining = mode === "countdown" ? remaining : Math.max(0, requiredSeconds - elapsed);
-  const progressPercent = requiredSeconds
-    ? Math.min(100, Math.round(((mode === "countdown" ? requiredSeconds - remaining : elapsed) / requiredSeconds) * 100))
-    : 0;
-  const isCycleRunning = mode === "pomo" ? pomodoroRunning : isRunning;
-  const startLabel = isCycleRunning ? "Dang chay" : elapsed > 0 ? "Resume" : "Start";
-  const mainDisplaySeconds = mode === "countdown" ? taskRemaining : elapsed;
-  const isBreak = mode === "pomo" && pomodoroPhase !== "focus";
-
-  // Timer handlers
-  const formatTime = (totalSeconds: number) => {
-    const sec = Math.max(0, Math.floor(totalSeconds));
-    const h = Math.floor(sec / 3600)
-      .toString()
-      .padStart(2, "0");
-    const m = Math.floor((sec % 3600) / 60)
-      .toString()
-      .padStart(2, "0");
-    const s = Math.floor(sec % 60)
-      .toString()
-      .padStart(2, "0");
-    return `${h}:${m}:${s}`;
-  };
-
-  useEffect(() => {
-    if (!shouldTick) return;
-    const interval = window.setInterval(() => tick(), 1000);
-    return () => window.clearInterval(interval);
-  }, [shouldTick, tick]);
-
-  useEffect(() => {
-    if (!lastCompletedTaskId) return;
-    const taskId = lastCompletedTaskId;
-    const target = tasks.find((t) => t.id === taskId);
-    clearCompletion();
-    if (!target) return;
-    if (!user) {
-      setError("You need to log in again.");
-      return;
-    }
-    const finalize = async () => {
       try {
-        const updated = await updateTask({ userId: user.id, token }, target.id, { status: "done" });
-        const next = normalizeTasks([...tasks.filter((t) => t.id !== target.id), updated]);
+        setSaving(true);
+        setError(null);
+        if (!user) {
+          setError("You need to log in again.");
+          return;
+        }
+        const created = await createTask(
+          { userId: user.id, token },
+          {
+            title: form.title.trim(),
+            description: form.description.trim() || null,
+            status: "todo",
+            priority: tasks.length + 1,
+            learningMinutes: Math.max(15, Number(form.learningMinutes) || 0),
+            skillId: form.skillId || null,
+          },
+        );
+        const next = normalizeTasks([...tasks, created]);
         setTasks(next);
+        setPositions((prev) => ({
+          ...prev,
+          [created.id]: { start: start.toISOString(), end: end.toISOString() },
+        }));
+        setForm(defaultForm);
       } catch (err) {
         setError((err as Error).message);
+      } finally {
+        setSaving(false);
+      }
+    },
+    [form.description, form.learningMinutes, form.skillId, form.title, setTasks, tasks, token, user],
+  );
+
+  const setEventPosition = (eventId: string, start: Date, end: Date) => {
+    setPositions((prev) => ({
+      ...prev,
+      [eventId]: { start: start.toISOString(), end: end.toISOString() },
+    }));
+  };
+
+  const minuteFromClientY = (clientY: number, dayIndex: number) => {
+    if (!gridRef.current) return HOURS_START * 60;
+    const dayColumn = gridRef.current.querySelectorAll<HTMLElement>("[data-day]")[dayIndex];
+    if (!dayColumn) return HOURS_START * 60;
+    const rect = dayColumn.getBoundingClientRect();
+    const y = clamp(clientY - rect.top, 0, rect.height);
+    return clamp(Math.round(y / MINUTE_PX) + HOURS_START * 60, HOURS_START * 60, HOURS_END * 60);
+  };
+
+  const handleBackgroundMouseDown = (dayIndex: number, e: ReactMouseEvent) => {
+    if (e.button !== 0) return;
+    const startMinutes = minuteFromClientY(e.clientY, dayIndex);
+    setDragAction({ type: "select", dayIndex, startMinutes });
+    setHoverSelection({ dayIndex, start: startMinutes, end: startMinutes });
+  };
+
+  const handleEventMouseDown = (
+    ev: CalendarEvent,
+    dayIndex: number,
+    e: ReactMouseEvent,
+    edge?: "start" | "end",
+  ) => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    if (edge) {
+      setDragAction({ type: "resize", eventId: ev.id, dayIndex, edge });
+      return;
+    }
+    const startMinutes = minutesSinceStart(ev.start);
+    const offset = minuteFromClientY(e.clientY, dayIndex) - startMinutes;
+    setDragAction({ type: "drag", eventId: ev.id, dayIndex, offsetMinutes: offset });
+  };
+
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (!dragAction) return;
+      if (dragAction.type === "select") {
+        const current = minuteFromClientY(e.clientY, dragAction.dayIndex);
+        setHoverSelection({
+          dayIndex: dragAction.dayIndex,
+          start: Math.min(dragAction.startMinutes, current),
+          end: Math.max(dragAction.startMinutes, current),
+        });
+      }
+      if (dragAction.type === "drag") {
+        const current = minuteFromClientY(e.clientY, dragAction.dayIndex);
+        const ev = events.find((x) => x.id === dragAction.eventId);
+        if (!ev) return;
+        const duration = (ev.end.getTime() - ev.start.getTime()) / 60000;
+        const startMinutes = clamp(current - dragAction.offsetMinutes, HOURS_START * 60, HOURS_END * 60);
+        const startDate = new Date(addDays(weekStart, dragAction.dayIndex));
+        startDate.setHours(0, startMinutes, 0, 0);
+        const endDate = new Date(startDate.getTime() + duration * 60000);
+        setEventPosition(ev.id, startDate, endDate);
+      }
+      if (dragAction.type === "resize") {
+        const current = minuteFromClientY(e.clientY, dragAction.dayIndex);
+        const ev = events.find((x) => x.id === dragAction.eventId);
+        if (!ev) return;
+        const dayDate = addDays(weekStart, dragAction.dayIndex);
+        const newStart = new Date(ev.start);
+        const newEnd = new Date(ev.end);
+        if (dragAction.edge === "start") {
+          newStart.setHours(0, clamp(current, HOURS_START * 60, minutesSinceStart(ev.end) - 15), 0, 0);
+          newStart.setFullYear(dayDate.getFullYear(), dayDate.getMonth(), dayDate.getDate());
+        } else {
+          newEnd.setHours(0, clamp(current, minutesSinceStart(ev.start) + 15, HOURS_END * 60), 0, 0);
+          newEnd.setFullYear(dayDate.getFullYear(), dayDate.getMonth(), dayDate.getDate());
+        }
+        setEventPosition(ev.id, newStart, newEnd);
       }
     };
-    void finalize();
-  }, [clearCompletion, lastCompletedTaskId, setTasks, tasks, token, user]);
+    const onUp = () => {
+      if (dragAction?.type === "select" && hoverSelection) {
+        const dayDate = addDays(weekStart, hoverSelection.dayIndex);
+        const startDate = new Date(dayDate);
+        startDate.setHours(0, hoverSelection.start, 0, 0);
+        const endDate = new Date(dayDate);
+        endDate.setHours(0, hoverSelection.end, 0, 0);
+        void handleCreate(startDate, endDate);
+      }
+      setDragAction(null);
+      setHoverSelection(null);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, [dragAction, events, hoverSelection, weekStart, handleCreate]);
+
+  const handleQuickSave = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    // No-op: creation is handled on mouse up selection
+  };
+
+  const handleJumpToday = () => {
+    setSelectedDate(new Date().toISOString().slice(0, 10));
+  };
+
+  const handleNextWeek = () => {
+    const next = addDays(new Date(selectedDate), 7);
+    setSelectedDate(next.toISOString().slice(0, 10));
+  };
+
+  const handlePrevWeek = () => {
+    const prev = addDays(new Date(selectedDate), -7);
+    setSelectedDate(prev.toISOString().slice(0, 10));
+  };
 
   return (
     <div className="space-y-4">
-      <PageTitle title="Tasks" subtitle="Manage tasks with priority and drag & drop" />
+      <PageTitle title="Tasks" subtitle="Week/day calendar với drag, resize, chọn slot" />
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-5 text-white shadow-lg">
-          <div className="flex items-start justify-between gap-3">
-            <div className="space-y-1">
-              <p className="text-xs uppercase tracking-[0.3em] text-emerald-300">Task timer</p>
-              <h3 className="text-xl font-bold">Dem gio theo task</h3>
-              <p className="text-xs text-slate-200/80">
-                Click task de nap vao dong ho. Chi duoc chay 1 task tai 1 thoi diem.
-              </p>
+      {error ? (
+        <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</div>
+      ) : null}
+
+      <div className="grid gap-4 lg:grid-cols-12">
+        <aside className="space-y-4 rounded-2xl border border-slate-200 bg-[#f7f7f9] p-4 text-slate-800 shadow-sm lg:col-span-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+              <Settings2 size={16} />
+              Calendars
             </div>
-            <div
-              className={`flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${
-                isCycleRunning ? "bg-emerald-400/20 text-emerald-100" : "bg-white/10 text-slate-200"
-              }`}
+            <button
+              type="button"
+              onClick={() => void loadTasks()}
+              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-700 transition hover:-translate-y-[1px] hover:shadow-sm"
             >
-              {isCycleRunning ? "Dang chay" : "Tam dung"}
-            </div>
+              <RotateCcw size={12} />
+              Refresh
+            </button>
           </div>
-
-          <div className="mt-4 space-y-4">
-            <div className="flex flex-wrap gap-2 text-xs font-semibold">
-                {[
-                { key: "pomo", label: "Task + Break (Pomodoro)" },
-                { key: "task", label: "Task count up" },
-                { key: "countdown", label: "Task countdown" },
-              ].map((opt) => (
-                <button
-                  key={opt.key}
-                  type="button"
-                  onClick={() => setMode(opt.key as TimerMode)}
-                  className={`rounded-full px-3 py-1 transition ${
-                    mode === opt.key ? "bg-white text-slate-900 shadow" : "bg-white/10 text-white hover:bg-white/20"
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="relative overflow-hidden rounded-2xl bg-white/5 p-6 shadow-inner">
-              <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 via-blue-500/5 to-transparent animate-[pulse_6s_ease-in-out_infinite]" />
-              <div className="relative space-y-4">
-                <div className="flex items-center gap-4">
-                  <div className="relative h-24 w-24">
-                    <div className="absolute inset-0 rounded-full border-4 border-white/10" />
-                    <div className="absolute inset-1 rounded-full border-4 border-emerald-400/60 animate-[spin_10s_linear_infinite]" />
-                    <div className="absolute inset-[14px] rounded-full bg-slate-900 shadow-inner" />
-                    <div className="absolute inset-0 flex items-center justify-center text-lg font-bold tracking-widest text-emerald-100">
-                      {formatTime(selectedTask ? mainDisplaySeconds : 0)}
-                    </div>
-                  </div>
-                  <div className="flex-1 space-y-2">
-                    <p className="text-sm font-semibold text-white line-clamp-2">
-                      {activeTaskTitle ?? "Chua chon task"}
-                    </p>
-                    <p className="text-xs text-slate-200">
-                      Yeu cau: {selectedTask?.learningMinutes ?? 0} phut • Da lam: {formatTime(elapsed)}
-                    </p>
-                    <div className="h-2 rounded-full bg-white/10">
-                      <div
-                        className="h-2 rounded-full bg-emerald-400 transition-all"
-                        style={{ width: `${progressPercent}%` }}
-                      />
-                    </div>
-                    <p className="text-[11px] uppercase tracking-wide text-emerald-100">
-                      Con lai: {formatTime(selectedTask ? taskRemaining : 0)}
-                    </p>
-                  </div>
-                </div>
-                {mode === "pomo" ? (
-                  <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-xs text-white">
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold uppercase tracking-wide">Pomodoro</span>
-                      <span
-                        className={`rounded-full px-2 py-1 text-[10px] font-semibold ${
-                          isBreak ? "bg-blue-400/20 text-blue-100" : "bg-emerald-400/20 text-emerald-100"
-                        }`}
-                      >
-                        {isBreak ? (pomodoroPhase === "long_break" ? "Long break" : "Break") : "Focus"}
-                      </span>
-                    </div>
-                    <div className="mt-2 flex items-center justify-between">
-                      <p className="text-lg font-bold tracking-widest">{formatTime(pomodoroRemaining)}</p>
-                      <p className="text-[11px] uppercase tracking-wide text-slate-200">
-                        Round {pomodoroRound}
-                      </p>
-                    </div>
-                    <p className="text-[11px] text-slate-200">
-                      Trong gio nghi, dong ho task tam dung va tu tiep tuc khi het nghi.
-                    </p>
-                  </div>
-                ) : null}
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => void handleStartTimer()}
-                disabled={
-                  !selectedTask ||
-                  selectedTask.status === "done" ||
-                  isCycleRunning ||
-                  (mode === "countdown" && requiredSeconds === 0)
-                }
-                className="rounded-full bg-emerald-400 px-3 py-1 text-xs font-semibold text-slate-900 shadow hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-70"
+          <div className="space-y-2">
+            {(Object.keys(statusMeta) as TaskStatus[]).map((status) => (
+              <label
+                key={status}
+                className="flex cursor-pointer items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 transition hover:-translate-y-[1px] hover:shadow-sm"
               >
-                {startLabel}
-              </button>
-              <button
-                type="button"
-                onClick={handlePauseTimer}
-                disabled={!selectedTask || (!isRunning && !(mode === "pomo" && pomodoroRunning))}
-                className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Pause
-              </button>
-              <button
-                type="button"
-                onClick={handleResetTimer}
-                disabled={!selectedTask}
-                className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Reset task timer
-              </button>
-              <button
-                type="button"
-                onClick={clearTask}
-                disabled={!selectedTask}
-                className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Bo chon
-              </button>
-            </div>
-
-            {mode === "pomo" ? (
-              <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-xs text-slate-100">
-                <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-200">
-                  Cau hinh Pomodoro
-                </p>
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label="Focus (phut)" value={settings.focusMinutes} onChange={(v) => setSettings({ focusMinutes: v })} />
-                  <Field label="Short break" value={settings.shortBreakMinutes} onChange={(v) => setSettings({ shortBreakMinutes: v })} />
-                  <Field label="Long break" value={settings.longBreakMinutes} onChange={(v) => setSettings({ longBreakMinutes: v })} />
-                  <Field label="Long break every" value={settings.longBreakEvery} onChange={(v) => setSettings({ longBreakEvery: v })} />
-                </div>
-              </div>
-            ) : null}
-          </div>
-        </div>
-
-        <div className="lg:col-span-2 space-y-4">
-      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <button
-          type="button"
-          onClick={() => setShowForm((s) => !s)}
-          className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-semibold text-slate-800"
-        >
-          <span>Create a new task</span>
-          <span className="text-xs text-emerald-600">{showForm ? "Hide" : "Show"}</span>
-        </button>
-        <Collapsible open={showForm}>
-          <div className="border-t border-slate-100 px-4 pb-4">
-            <form onSubmit={handleSubmit} className="mt-3 grid gap-3 md:grid-cols-2">
-              <div className="md:col-span-2">
-                <label className="mb-1 block text-xs font-semibold text-slate-600">Title</label>
+                <span className="flex items-center gap-2">
+                  <span className={statusMeta[status].color}>{statusMeta[status].icon}</span>
+                  {statusMeta[status].label}
+                </span>
                 <input
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
+                  type="checkbox"
+                  checked={statusFilter[status]}
+                  onChange={(e) =>
+                    setStatusFilter((prev) => ({
+                      ...prev,
+                      [status]: e.target.checked,
+                    }))
+                  }
+                  className="h-4 w-4 accent-emerald-500"
+                />
+              </label>
+            ))}
+          </div>
+
+          <div className="rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-700 shadow-sm">
+            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+              <Plus size={14} />
+              Tao task
+            </div>
+            <form onSubmit={handleQuickSave} className="mt-3 space-y-3">
+              <label className="space-y-1 text-xs font-semibold text-slate-700">
+                <span className="block">Tieu de</span>
+                <input
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none"
                   value={form.title}
                   onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-                  placeholder="e.g. Finish weekly report"
+                  placeholder="VD: Weekly sync"
+                  required
                 />
-              </div>
-              <div className="md:col-span-2">
-                <label className="mb-1 block text-xs font-semibold text-slate-600">Description</label>
-                <textarea
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
-                  value={form.description}
-                  onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                  placeholder="Add some notes..."
-                  rows={2}
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-600">Skill (optional)</label>
+              </label>
+              <label className="space-y-1 text-xs font-semibold text-slate-700">
+                <span className="block">Skill</span>
                 <select
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:border-emerald-500 focus:outline-none"
                   value={form.skillId}
-                  disabled={skillsLoading}
                   onChange={(e) => setForm((f) => ({ ...f, skillId: e.target.value }))}
+                  disabled={skillsLoading}
                 >
                   <option value="">-- No skill --</option>
-                  {skills.map((skill) => (
-                    <option key={skill.id} value={skill.id}>
-                      {skill.name}
+                  {skills.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
                     </option>
                   ))}
                 </select>
-                {skillsLoading ? <p className="mt-1 text-xs text-slate-500">Loading skills...</p> : null}
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-600">Thời gian học (phút)</label>
+              </label>
+              <label className="space-y-1 text-xs font-semibold text-slate-700">
+                <span className="block">Thoi luong (phut)</span>
                 <input
                   type="number"
-                  min={0}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
+                  min={15}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none"
                   value={form.learningMinutes}
                   onChange={(e) => setForm((f) => ({ ...f, learningMinutes: Number(e.target.value) || 0 }))}
-                  placeholder="Ví dụ: 90"
                 />
-              </div>
-              <div className="flex items-end">
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="w-full rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  {saving ? "Saving..." : "Create task"}
-                </button>
-              </div>
+              </label>
+              <button
+                type="submit"
+                disabled={saving}
+                className="w-full rounded-lg bg-emerald-500 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow-md disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {saving ? "Saving..." : "Luu khi da chon slot"}
+              </button>
+              <p className="text-[11px] text-slate-500">
+                Chon khoang gio tren lich week/day roi thả chuột để tạo. Drag & resize để chỉnh sau.
+              </p>
             </form>
-            {error ? <p className="mt-2 text-sm text-rose-500">{error}</p> : null}
           </div>
-        </Collapsible>
-      </div>
+        </aside>
 
-      {loading ? (
-        <p className="text-sm text-slate-600">Loading tasks...</p>
-      ) : (
-        <div className="space-y-4">
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-widest text-emerald-500">Active</p>
-                <h3 className="text-base font-bold text-slate-900">In progress / To do</h3>
-                <p className="text-xs text-slate-500">Drag to rearrange priority. Click de nap vao dong ho.</p>
-              </div>
-              <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-                {activeTasks.length} tasks
-              </span>
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-md lg:col-span-9">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handlePrevWeek}
+                className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-800 transition hover:-translate-y-[1px] hover:shadow-sm"
+              >
+                Prev
+              </button>
+              <button
+                type="button"
+                onClick={handleNextWeek}
+                className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-800 transition hover:-translate-y-[1px] hover:shadow-sm"
+              >
+                Next
+              </button>
+              <button
+                type="button"
+                onClick={handleJumpToday}
+                className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-800 transition hover:-translate-y-[1px] hover:shadow-sm"
+              >
+                Today
+              </button>
             </div>
-            <div className="relative mt-4 pl-10">
-              <div className="absolute left-[10px] top-0 bottom-0 w-px bg-slate-200" />
-              {activeTasks.length === 0 ? (
-                <p className="text-sm text-slate-500">No active tasks.</p>
-              ) : (
-                    <DndContext
-                      sensors={sensors}
-                      collisionDetection={closestCenter}
-                      onDragStart={(e) => {
-                        setDraggingId(String(e.active.id));
-                        const found = activeTasks.find((t) => t.id === e.active.id);
-                        setActiveDragTask(found ?? null);
-                      }}
-                      onDragEnd={async (evt) => {
-                        await handleDragEnd(evt);
-                        setActiveDragTask(null);
-                      }}
-                      onDragCancel={() => {
-                        setDraggingId(null);
-                        setActiveDragTask(null);
-                      }}
-                    >
-                      <SortableContext items={activeTasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
-                        <div className="space-y-3 pb-3">
-                          {activeTasks.map((task) => (
-                            <SortableTaskCard
-                              key={task.id}
-                              task={task}
-                              onSelect={handleSelectTask}
-                              onDelete={handleDelete}
-                              draggingId={draggingId}
-                              skillNames={skillNames}
-                              selectedId={activeTaskId}
-                              isRunningTask={isRunning}
-                            />
-                          ))}
-                        </div>
-                      </SortableContext>
-                      <DragOverlay dropAnimation={null}>
-                        {activeDragTask ? (
-                          <SortableTaskCard
-                            task={activeDragTask}
-                            onSelect={() => {}}
-                            onDelete={handleDelete}
-                            draggingId={draggingId}
-                            skillNames={skillNames}
-                            isOverlay
-                            selectedId={activeTaskId}
-                            isRunningTask={isRunning}
-                          />
-                        ) : null}
-                      </DragOverlay>
-                    </DndContext>
-                  )}
-                </div>
-              </div>
+            {loading ? (
+              <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-600">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Loading
+              </span>
+            ) : null}
+          </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">Done</p>
-                <h3 className="text-base font-bold text-slate-900">Completed</h3>
-                <p className="text-xs text-slate-500">Completed items (no drag)</p>
-              </div>
-              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-                {doneTasks.length} tasks
-              </span>
-            </div>
-            <div className="mt-4 space-y-3">
-              {doneTasks.length === 0 ? (
-                <p className="text-sm text-slate-500">No completed tasks.</p>
-              ) : (
-                doneTasks.map((task) => (
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-[#f9fafb]">
+            <div className="grid grid-cols-[72px_repeat(7,minmax(0,1fr))] border-b border-slate-200 bg-white text-xs font-semibold text-slate-600">
+              <div className="px-3 py-2" />
+              {weekDays.map((day) => {
+                const isToday = fmtKey(day) === fmtKey(new Date());
+                return (
                   <div
-                    key={task.id}
-                    className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 shadow-sm transition hover:border-emerald-200"
+                    key={fmtKey(day)}
+                    className={`px-3 py-2 text-center ${isToday ? "text-emerald-600" : ""}`}
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 space-y-1">
-                        <p className="text-sm font-semibold text-slate-900 line-through decoration-emerald-500">
-                          {task.title}
-                        </p>
-                        {task.description ? (
-                          <p className="text-xs text-slate-600">{task.description}</p>
-                        ) : null}
-                        {task.skillId || task.learningMinutes ? (
-                          <p className="text-[11px] uppercase tracking-wide text-slate-500">
-                            {task.skillId ? `Skill: ${skillNames[task.skillId] ?? task.skillId}` : null}
-                            {task.skillId && task.learningMinutes ? " • " : null}
-                            {task.learningMinutes ? `${task.learningMinutes} phút` : null}
-                          </p>
-                        ) : null}
-                        <p className="text-[11px] uppercase tracking-wide text-slate-400">
-                          Priority: {task.priority ?? "-"}
-                        </p>
-                      </div>
-                      <div className="flex flex-col items-end gap-2">
-                        <span className="rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-700">
-                          Done
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(task.id)}
-                          className="text-[11px] font-semibold text-rose-600 hover:text-rose-700"
-                        >
-                          Delete
-                        </button>
-                      </div>
+                    <div className="text-[11px] uppercase tracking-wide">
+                      {day.toLocaleDateString("default", { weekday: "short" })}
                     </div>
+                    <div className="text-base">{day.getDate()}</div>
                   </div>
-                ))
-              )}
+                );
+              })}
+            </div>
+
+            <div
+              ref={gridRef}
+              className="grid grid-cols-[72px_repeat(7,minmax(0,1fr))]"
+              style={{ height: `${(HOURS_END - HOURS_START) * 60 * MINUTE_PX}px` }}
+            >
+              <div className="relative">
+                {Array.from({ length: HOURS_END - HOURS_START + 1 }, (_, i) => HOURS_START + i).map((h) => (
+                  <div
+                    key={h}
+                    className="absolute left-0 right-0 border-b border-dashed border-slate-200 text-right text-[10px] text-slate-500"
+                    style={{ top: `${(h - HOURS_START) * 60 * MINUTE_PX}px`, height: `${60 * MINUTE_PX}px` }}
+                  >
+                    <span className="pr-2 pt-1 inline-block">{h}:00</span>
+                  </div>
+                ))}
+              </div>
+
+              {weekDays.map((day, idx) => {
+                const dayEvents = weekEvents[fmtKey(day)] ?? [];
+                return (
+                  <div
+                    key={fmtKey(day)}
+                    data-day
+                    className="relative border-l border-slate-200"
+                    onMouseDown={(e) => handleBackgroundMouseDown(idx, e)}
+                  >
+                    {Array.from({ length: HOURS_END - HOURS_START + 1 }, (_, i) => (
+                      <div
+                        key={i}
+                        className="absolute inset-x-0 border-b border-dashed border-slate-200"
+                        style={{ top: `${i * 60 * MINUTE_PX}px`, height: `${60 * MINUTE_PX}px` }}
+                      />
+                    ))}
+                    {dayEvents.map((ev) => {
+                      const startMinutes = minutesSinceStart(ev.start);
+                      const endMinutes = minutesSinceStart(ev.end);
+                      const top = (startMinutes - HOURS_START * 60) * MINUTE_PX;
+                      const height = Math.max((endMinutes - startMinutes) * MINUTE_PX, 8);
+                      return (
+                        <div
+                          key={ev.id}
+                          className={`group absolute inset-x-1 rounded-md border border-slate-300 bg-white shadow-sm transition hover:shadow-md`}
+                          style={{ top, height }}
+                          onMouseDown={(e) => handleEventMouseDown(ev, idx, e)}
+                        >
+                          <div className="flex items-center justify-between px-2 py-1 text-[11px] font-semibold text-slate-700">
+                            <span className={statusMeta[ev.status].color}>{statusMeta[ev.status].icon}</span>
+                            <span className="text-[10px] text-slate-500">{ev.skillId ?? ""}</span>
+                          </div>
+                          <div className="px-2 pb-1 text-sm font-semibold text-slate-900">{ev.title}</div>
+                          <div className="px-2 pb-1 text-[10px] text-slate-500">
+                            {formatRange(ev.start, ev.end)}
+                          </div>
+                          <div
+                            className="absolute left-0 right-0 top-0 h-1 cursor-n-resize opacity-0 transition group-hover:opacity-60"
+                            onMouseDown={(e) => handleEventMouseDown(ev, idx, e, "start")}
+                          />
+                          <div
+                            className="absolute bottom-0 left-0 right-0 h-1 cursor-s-resize opacity-0 transition group-hover:opacity-60"
+                            onMouseDown={(e) => handleEventMouseDown(ev, idx, e, "end")}
+                          />
+                        </div>
+                      );
+                    })}
+
+                    {hoverSelection && hoverSelection.dayIndex === idx ? (
+                      <div
+                        className="absolute inset-x-1 rounded-md border border-emerald-300 bg-emerald-100/60"
+                        style={{
+                          top: `${(hoverSelection.start - HOURS_START * 60) * MINUTE_PX}px`,
+                          height: `${Math.max(hoverSelection.end - hoverSelection.start, 4) * MINUTE_PX}px`,
+                        }}
+                      />
+                    ) : null}
+                  </div>
+                );
+              })}
             </div>
           </div>
-        </div>
-      )}
+        </section>
+      </div>
     </div>
-    </div>
-  </div>
   );
 };
 
 export default TasksPage;
 
-type SortableTaskProps = {
-  task: Task;
-  draggingId: string | null;
-  onSelect: (task: Task) => void;
-  onDelete: (id: string) => void;
-  isOverlay?: boolean;
-  skillNames?: Record<string, string>;
-  selectedId?: string | null;
-  isRunningTask?: boolean;
-};
-
-const SortableTaskCard = ({
-  task,
-  draggingId,
-  onSelect,
-  onDelete,
-  isOverlay,
-  skillNames,
-  selectedId,
-  isRunningTask,
-}: SortableTaskProps) => {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: task.id,
-    disabled: isOverlay,
-  });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  };
-
-  const bulletColor =
-    task.status === "done"
-      ? "bg-emerald-500 border-emerald-500"
-      : task.status === "in_progress"
-        ? "bg-blue-500 border-blue-500"
-        : "bg-white border-slate-300";
-  const skillLabel = task.skillId ? skillNames?.[task.skillId] ?? task.skillId : null;
-  const learning = task.learningMinutes ?? 0;
-  const isSelected = selectedId === task.id;
-  const isLive = Boolean(isSelected && isRunningTask);
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      {...attributes}
-      {...listeners}
-      onClick={isOverlay ? undefined : () => onSelect(task)}
-      className={`group relative w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 shadow-sm transition ${
-        draggingId === task.id || isDragging
-          ? "ring-2 ring-blue-300 shadow-md"
-          : isSelected
-            ? "border-emerald-300 ring-2 ring-emerald-300/60"
-            : "hover:border-emerald-200"
-      } ${isOverlay ? "cursor-grabbing" : "cursor-pointer"}`}
-    >
-      <div
-        className={`absolute left-[-37px] top-2 h-3 w-3 rounded-full border-2 shadow-sm ${bulletColor}`}
-      />
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 space-y-1">
-          <p className="text-sm font-semibold text-slate-900">{task.title}</p>
-          {task.description ? <p className="text-xs text-slate-600">{task.description}</p> : null}
-          {skillLabel || learning ? (
-            <p className="text-[11px] uppercase tracking-wide text-slate-500">
-              {skillLabel ? `Skill: ${skillLabel}` : null}
-              {skillLabel && learning ? " • " : null}
-              {learning ? `${learning} phút` : null}
-            </p>
-          ) : null}
-          {/* <p className="text-[11px] uppercase tracking-wide text-slate-400">
-            Priority: {task.priority ?? "-"}
-          </p> */}
-        </div>
-        <div className="flex flex-col items-end gap-2">
-          <span
-            className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
-              isLive ? "bg-emerald-100 text-emerald-800" : "bg-white text-slate-700"
-            }`}
-          >
-            {isLive ? "Dang chay" : statusLabel(task.status)}
-          </span>
-          <p className="text-[11px] text-slate-500">Click de nap vao dong ho.</p>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete(task.id);
-            }}
-            className="text-[11px] font-semibold text-rose-600 hover:text-rose-700"
-          >
-            Delete
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-type FieldProps = { label: string; value: number; onChange: (v: number) => void };
-
-const Field = ({ label, value, onChange }: FieldProps) => (
-  <label className="space-y-1 text-[11px] font-semibold text-slate-200">
-    <span className="block">{label}</span>
-    <input
-      type="number"
-      min={1}
-      value={value}
-      onChange={(e) => onChange(Number(e.target.value) || 0)}
-      className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm text-white placeholder:text-slate-300 focus:border-emerald-300 focus:outline-none"
-    />
-  </label>
-);
-
-const Collapsible = ({ open, children }: { open: boolean; children: ReactNode }) => {
-  const ref = useRef<HTMLDivElement>(null);
-  const [height, setHeight] = useState<number>(0);
-
-  useEffect(() => {
-    if (ref.current) {
-      setHeight(ref.current.scrollHeight);
-    }
-  }, [children]);
-
-  return (
-    <div
-      style={{
-        maxHeight: open ? height : 0,
-        opacity: open ? 1 : 0,
-        overflow: "hidden",
-        transition: "max-height 220ms ease, opacity 220ms ease",
-      }}
-    >
-      <div ref={ref}>{children}</div>
-    </div>
-  );
+const formatRange = (start: Date, end: Date) => {
+  const opts: Intl.DateTimeFormatOptions = { hour: "2-digit", minute: "2-digit" };
+  return `${start.toLocaleTimeString([], opts)} - ${end.toLocaleTimeString([], opts)}`;
 };
