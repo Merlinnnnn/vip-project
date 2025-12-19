@@ -1,4 +1,13 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent as ReactMouseEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type JSX,
+  type MouseEvent as ReactMouseEvent,
+} from "react";
 import { CheckSquare, Circle, Clock3, Loader2, Plus, RotateCcw, Settings2 } from "lucide-react";
 import PageTitle from "../../components/common/PageTitle";
 import type { Task, TaskStatus } from "../../types/task";
@@ -13,6 +22,7 @@ type FormState = {
   description: string;
   skillId: string;
   learningMinutes: number;
+  targetTime: string;
 };
 
 type CalendarEvent = {
@@ -33,7 +43,7 @@ const HOURS_START = 8;
 const HOURS_END = 20;
 const MINUTE_PX = 1;
 const STORAGE_KEY = "taskCalendarPositions";
-const defaultForm: FormState = { title: "", description: "", skillId: "", learningMinutes: 60 };
+const defaultForm: FormState = { title: "", description: "", skillId: "", learningMinutes: 60, targetTime: "18:00" };
 
 const statusMeta: Record<TaskStatus, { label: string; color: string; bg: string; icon: JSX.Element }> = {
   todo: { label: "Chua lam", color: "text-amber-600", bg: "bg-amber-100", icon: <Circle size={14} /> },
@@ -67,6 +77,21 @@ const fmtKey = (d: Date) => d.toISOString().slice(0, 10);
 const minutesSinceStart = (date: Date) => date.getHours() * 60 + date.getMinutes();
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+const ensureDuration = (learningMinutes?: number) => Math.max(15, Number(learningMinutes) || 60);
+
+const defaultStart = (task: Task) => {
+  const base = task.createdAt ? new Date(task.createdAt) : new Date();
+  base.setHours(HOURS_START + 1, 0, 0, 0);
+  return base.toISOString();
+};
+
+const defaultEnd = (startIso: string, learningMinutes?: number) => {
+  const duration = ensureDuration(learningMinutes);
+  const start = new Date(startIso);
+  const end = new Date(start.getTime() + duration * 60000);
+  return end.toISOString();
+};
 
 const TasksPage = () => {
   const { user, token } = useAuth();
@@ -175,8 +200,47 @@ const TasksPage = () => {
     return map;
   }, [events, weekDays]);
 
-  const handleCreate = useMemo(
-    () => async (start: Date, end: Date) => {
+  const computeWindowFromForm = useCallback(
+    (durationMinutes: number) => {
+      const baseDay = new Date(selectedDate);
+      const now = new Date();
+      const minutes = durationMinutes || ensureDuration(form.learningMinutes);
+
+      if (form.targetTime) {
+        const [h, m] = form.targetTime.split(":").map(Number);
+        if (!Number.isNaN(h)) {
+          const endDate = new Date(baseDay);
+          endDate.setHours(h, Number.isNaN(m) ? 0 : m, 0, 0);
+          let startDate = new Date(endDate.getTime() - minutes * 60000);
+
+          const earliest = new Date(baseDay);
+          earliest.setHours(HOURS_START, 0, 0, 0);
+          const latest = new Date(baseDay);
+          latest.setHours(HOURS_END, 0, 0, 0);
+
+          if (startDate < earliest) {
+            startDate = earliest;
+            endDate.setTime(startDate.getTime() + minutes * 60000);
+          }
+          if (endDate > latest) {
+            endDate.setTime(latest.getTime());
+            startDate = new Date(endDate.getTime() - minutes * 60000);
+          }
+          return { start: startDate, end: endDate };
+        }
+      }
+
+      const startDate = new Date(baseDay);
+      const suggestedHour = Math.min(Math.max(now.getHours(), HOURS_START + 1), HOURS_END - 1);
+      startDate.setHours(suggestedHour, now.getMinutes() < 30 ? 0 : 30, 0, 0);
+      const endDate = new Date(startDate.getTime() + minutes * 60000);
+      return { start: startDate, end: endDate };
+    },
+    [form.learningMinutes, form.targetTime, selectedDate],
+  );
+
+  const handleCreate = useCallback(
+    async (windowOverride?: { start: Date; end: Date }) => {
       if (!form.title.trim()) {
         setError("Title is required");
         return;
@@ -188,6 +252,8 @@ const TasksPage = () => {
           setError("You need to log in again.");
           return;
         }
+        const duration = ensureDuration(form.learningMinutes);
+        const window = windowOverride ?? computeWindowFromForm(duration);
         const created = await createTask(
           { userId: user.id, token },
           {
@@ -195,7 +261,7 @@ const TasksPage = () => {
             description: form.description.trim() || null,
             status: "todo",
             priority: tasks.length + 1,
-            learningMinutes: Math.max(15, Number(form.learningMinutes) || 0),
+            learningMinutes: duration,
             skillId: form.skillId || null,
           },
         );
@@ -203,7 +269,7 @@ const TasksPage = () => {
         setTasks(next);
         setPositions((prev) => ({
           ...prev,
-          [created.id]: { start: start.toISOString(), end: end.toISOString() },
+          [created.id]: { start: window.start.toISOString(), end: window.end.toISOString() },
         }));
         setForm(defaultForm);
       } catch (err) {
@@ -212,7 +278,17 @@ const TasksPage = () => {
         setSaving(false);
       }
     },
-    [form.description, form.learningMinutes, form.skillId, form.title, setTasks, tasks, token, user],
+    [
+      computeWindowFromForm,
+      form.description,
+      form.learningMinutes,
+      form.skillId,
+      form.title,
+      setTasks,
+      tasks,
+      token,
+      user,
+    ],
   );
 
   const setEventPosition = (eventId: string, start: Date, end: Date) => {
@@ -301,7 +377,7 @@ const TasksPage = () => {
         startDate.setHours(0, hoverSelection.start, 0, 0);
         const endDate = new Date(dayDate);
         endDate.setHours(0, hoverSelection.end, 0, 0);
-        void handleCreate(startDate, endDate);
+        void handleCreate({ start: startDate, end: endDate });
       }
       setDragAction(null);
       setHoverSelection(null);
@@ -316,7 +392,7 @@ const TasksPage = () => {
 
   const handleQuickSave = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    // No-op: creation is handled on mouse up selection
+    void handleCreate();
   };
 
   const handleJumpToday = () => {
@@ -333,108 +409,176 @@ const TasksPage = () => {
     setSelectedDate(prev.toISOString().slice(0, 10));
   };
 
+  const plannedDuration = ensureDuration(form.learningMinutes);
+  const previewWindow = useMemo(
+    () => computeWindowFromForm(plannedDuration),
+    [computeWindowFromForm, plannedDuration],
+  );
+  const previewLabel = formatRange(previewWindow.start, previewWindow.end);
+
   return (
     <div className="space-y-4">
-      <PageTitle title="Tasks" subtitle="Week/day calendar với drag, resize, chọn slot" />
+      <PageTitle title="Tasks" subtitle="Week/day calendar voi drag, resize, chon slot" />
 
       {error ? (
         <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</div>
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-12">
-        <aside className="space-y-4 rounded-2xl border border-slate-200 bg-[#f7f7f9] p-4 text-slate-800 shadow-sm lg:col-span-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-              <Settings2 size={16} />
-              Calendars
+        <aside className="space-y-4 lg:col-span-3">
+          <div className="relative overflow-hidden rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-slate-50 shadow-2xl">
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(16,185,129,.25),transparent_35%),radial-gradient(circle_at_80%_0%,rgba(56,189,248,.28),transparent_32%)]" />
+            <div className="relative space-y-4 p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-[11px] uppercase tracking-[0.25em] text-emerald-200/70">Add task</div>
+                  <div className="text-lg font-semibold">Launchpad</div>
+                  <p className="text-sm text-emerald-100/80">
+                    Khong can chon ngay; dat gio muon hoan thanh roi bam tao.
+                  </p>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-right">
+                  <div className="text-[10px] uppercase text-emerald-100/70">Hoan thanh truoc</div>
+                  <div className="text-sm font-semibold text-white">{previewLabel}</div>
+                </div>
+              </div>
+
+              <form onSubmit={handleQuickSave} className="space-y-3">
+                <label className="space-y-1 text-xs font-semibold text-emerald-100/80">
+                  <span className="block">Tieu de</span>
+                  <input
+                    className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-emerald-100/50 focus:border-emerald-300 focus:outline-none"
+                    value={form.title}
+                    onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                    placeholder="VD: Hoc React Query"
+                    required
+                  />
+                </label>
+
+                <label className="space-y-1 text-xs font-semibold text-emerald-100/80">
+                  <span className="block">Mo ta nhanh</span>
+                  <textarea
+                    className="min-h-[64px] w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-emerald-100/50 focus:border-emerald-300 focus:outline-none"
+                    value={form.description}
+                    onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                    placeholder="Diem chinh, checklist, link..."
+                  />
+                </label>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="space-y-1 text-xs font-semibold text-emerald-100/80">
+                    <span className="block">Skill</span>
+                    <select
+                      className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-emerald-300 focus:outline-none"
+                      value={form.skillId}
+                      onChange={(e) => setForm((f) => ({ ...f, skillId: e.target.value }))}
+                      disabled={skillsLoading}
+                    >
+                      <option className="bg-slate-900 text-white" value="">Khong gan</option>
+                      {skills.map((s) => (
+                        <option className="bg-slate-900 text-white" key={s.id} value={s.id}>
+                          {s.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="space-y-1 text-xs font-semibold text-emerald-100/80">
+                    <span className="block">Thoi luong (phut)</span>
+                    <input
+                      type="number"
+                      min={15}
+                      className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-emerald-100/50 focus:border-emerald-300 focus:outline-none"
+                      value={form.learningMinutes}
+                      onChange={(e) => setForm((f) => ({ ...f, learningMinutes: Number(e.target.value) || 0 }))}
+                    />
+                  </label>
+                </div>
+
+                <label className="space-y-1 text-xs font-semibold text-emerald-100/80">
+                  <span className="block">Gio muon xong</span>
+                  <input
+                    type="time"
+                    className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-emerald-100/50 focus:border-emerald-300 focus:outline-none"
+                    value={form.targetTime}
+                    onChange={(e) => setForm((f) => ({ ...f, targetTime: e.target.value }))}
+                  />
+                </label>
+
+                <div className="flex items-center justify-between text-[11px] text-emerald-100/80">
+                  <span>Tu can gio trong ngay, khong can chon date.</span>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2 py-1 text-[10px] font-semibold">
+                    <Clock3 size={12} />
+                    {plannedDuration}p
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-400 px-3 py-2 text-sm font-semibold text-slate-900 shadow-lg shadow-emerald-500/30 transition hover:-translate-y-[1px] hover:shadow-emerald-500/50 disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    <Plus size={16} />
+                    {saving ? "?ang t?o..." : "T?o ngay"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleJumpToday()}
+                    className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-emerald-50 transition hover:-translate-y-[1px] hover:border-emerald-200/60"
+                  >
+                    <Settings2 size={14} />
+                    ??n h?m nay
+                  </button>
+                </div>
+
+                <p className="text-[11px] leading-relaxed text-emerald-100/80">
+                  Mu?n ??t ??ng ng?y? Th? m?t v?ng tr?n l?ch tu?n r?i k?o/resize ?? tinh ch?nh. Form n?y gi? l?i
+                  d? li?u khi b?n th? nhi?u slot kh?c nhau.
+                </p>
+              </form>
             </div>
-            <button
-              type="button"
-              onClick={() => void loadTasks()}
-              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-700 transition hover:-translate-y-[1px] hover:shadow-sm"
-            >
-              <RotateCcw size={12} />
-              Refresh
-            </button>
-          </div>
-          <div className="space-y-2">
-            {(Object.keys(statusMeta) as TaskStatus[]).map((status) => (
-              <label
-                key={status}
-                className="flex cursor-pointer items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 transition hover:-translate-y-[1px] hover:shadow-sm"
-              >
-                <span className="flex items-center gap-2">
-                  <span className={statusMeta[status].color}>{statusMeta[status].icon}</span>
-                  {statusMeta[status].label}
-                </span>
-                <input
-                  type="checkbox"
-                  checked={statusFilter[status]}
-                  onChange={(e) =>
-                    setStatusFilter((prev) => ({
-                      ...prev,
-                      [status]: e.target.checked,
-                    }))
-                  }
-                  className="h-4 w-4 accent-emerald-500"
-                />
-              </label>
-            ))}
           </div>
 
-          <div className="rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-700 shadow-sm">
-            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-              <Plus size={14} />
-              Tao task
-            </div>
-            <form onSubmit={handleQuickSave} className="mt-3 space-y-3">
-              <label className="space-y-1 text-xs font-semibold text-slate-700">
-                <span className="block">Tieu de</span>
-                <input
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none"
-                  value={form.title}
-                  onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-                  placeholder="VD: Weekly sync"
-                  required
-                />
-              </label>
-              <label className="space-y-1 text-xs font-semibold text-slate-700">
-                <span className="block">Skill</span>
-                <select
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:border-emerald-500 focus:outline-none"
-                  value={form.skillId}
-                  onChange={(e) => setForm((f) => ({ ...f, skillId: e.target.value }))}
-                  disabled={skillsLoading}
-                >
-                  <option value="">-- No skill --</option>
-                  {skills.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="space-y-1 text-xs font-semibold text-slate-700">
-                <span className="block">Thoi luong (phut)</span>
-                <input
-                  type="number"
-                  min={15}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none"
-                  value={form.learningMinutes}
-                  onChange={(e) => setForm((f) => ({ ...f, learningMinutes: Number(e.target.value) || 0 }))}
-                />
-              </label>
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 text-slate-800 shadow-sm">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                <Settings2 size={16} />
+                Filter tr?ng th?i
+              </div>
               <button
-                type="submit"
-                disabled={saving}
-                className="w-full rounded-lg bg-emerald-500 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow-md disabled:cursor-not-allowed disabled:opacity-70"
+                type="button"
+                onClick={() => void loadTasks()}
+                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-700 transition hover:-translate-y-[1px] hover:shadow-sm"
               >
-                {saving ? "Saving..." : "Luu khi da chon slot"}
+                <RotateCcw size={12} />
+                Refresh
               </button>
-              <p className="text-[11px] text-slate-500">
-                Chon khoang gio tren lich week/day roi thả chuột để tạo. Drag & resize để chỉnh sau.
-              </p>
-            </form>
+            </div>
+            <div className="space-y-2">
+              {(Object.keys(statusMeta) as TaskStatus[]).map((status) => (
+                <label
+                  key={status}
+                  className="flex cursor-pointer items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-800 transition hover:-translate-y-[1px] hover:shadow-sm"
+                >
+                  <span className="flex items-center gap-2">
+                    <span className={statusMeta[status].color}>{statusMeta[status].icon}</span>
+                    {statusMeta[status].label}
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={statusFilter[status]}
+                    onChange={(e) =>
+                      setStatusFilter((prev) => ({
+                        ...prev,
+                        [status]: e.target.checked,
+                      }))
+                    }
+                    className="h-4 w-4 accent-emerald-500"
+                  />
+                </label>
+              ))}
+            </div>
           </div>
         </aside>
 
