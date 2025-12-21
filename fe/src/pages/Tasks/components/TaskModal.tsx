@@ -1,13 +1,4 @@
-import {
-  Bell,
-  CalendarDays,
-  Clock3,
-  Flag,
-  Loader2,
-  Tag,
-  User,
-  X,
-} from "lucide-react";
+import { Bell, CalendarDays, Clock3, Loader2, Tag, X } from "lucide-react";
 import { useAuth } from "../../../routes/AuthContext";
 import { useTasksStore } from "../../../store/useTasksStore";
 import { useSkillsStore } from "../../../store/useSkillsStore";
@@ -31,6 +22,13 @@ const TaskModal = ({ onCreated }: Props) => {
   const [saving, setSaving] = useState(false);
   const [showWeek, setShowWeek] = useState(false);
   const rollingWeek = useMemo(() => buildWeek(new Date()), []);
+  const resolveScheduledDate = () => {
+    if (form.dayOption === "none") return null;
+    if (form.dayOption === "today") return fmtKey(new Date());
+    if (form.dayOption === "tomorrow") return fmtKey(addDays(new Date(), 1));
+    return selectedDate;
+  };
+  const plannedDateKey = resolveScheduledDate();
 
   if (!modalOpen) return null;
 
@@ -40,23 +38,9 @@ const TaskModal = ({ onCreated }: Props) => {
     try {
       setSaving(true);
       const duration = ensureDuration(form.learningMinutes);
-      const base = new Date(selectedDate);
-      if (form.dayOption === "custom" || form.dayOption === "today" || form.dayOption === "tomorrow") {
-        const now = new Date();
-        if (form.dayOption === "today") {
-          base.setFullYear(now.getFullYear(), now.getMonth(), now.getDate());
-        }
-        if (form.dayOption === "tomorrow") {
-          const tomorrow = addDays(now, 1);
-          base.setFullYear(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate());
-        }
-      }
-      const start = new Date(base);
-      if (form.notifyOption === "1h") start.setTime(Date.now() + 60 * 60000);
-      if (form.notifyOption === "4h") start.setTime(Date.now() + 4 * 60 * 60000);
-      start.setMinutes(0, 0, 0);
-      start.setHours(start.getHours() < 8 ? 10 : start.getHours());
-      const end = new Date(start.getTime() + duration * 60000);
+      const scheduledDate = resolveScheduledDate();
+      const sameDayTasks = tasks.filter((t) => (t.scheduledDate ?? null) === scheduledDate);
+      const nextPriority = sameDayTasks.length + 1;
 
       const created = await createTask(
         { userId: user.id, token },
@@ -64,16 +48,22 @@ const TaskModal = ({ onCreated }: Props) => {
           title: form.title.trim(),
           description: form.description.trim() || null,
           status: "todo",
-          priority: tasks.length + 1,
+          priority: nextPriority,
+          scheduledDate,
           learningMinutes: duration,
           skillId: form.skillId || null,
         },
       );
-      setTasks(normalizeTasks([...tasks, created]));
+      const createdWithSchedule = {
+        ...created,
+        scheduledDate: created.scheduledDate ?? scheduledDate,
+        priority: created.priority ?? nextPriority,
+      };
+      setTasks(normalizeTasks([...tasks, createdWithSchedule]));
       onCreated?.();
       resetForm();
       setModalOpen(false);
-    } catch (err) {
+    } catch {
       // keep silent UI for now
     } finally {
       setSaving(false);
@@ -81,7 +71,7 @@ const TaskModal = ({ onCreated }: Props) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="w-full max-w-xl rounded-2xl border border-slate-200 bg-white shadow-2xl">
         <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
           <div className="flex items-center gap-2 text-sm text-slate-500">
@@ -195,18 +185,6 @@ const TaskModal = ({ onCreated }: Props) => {
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="space-y-1 text-xs font-semibold text-slate-600">
               <span className="inline-flex items-center gap-2">
-                <Flag size={14} />
-                Priority
-              </span>
-              <input
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:border-amber-400 focus:outline-none"
-                value={form.priority}
-                onChange={(e) => updateForm({ priority: e.target.value })}
-                placeholder="Add priority"
-              />
-            </label>
-            <label className="space-y-1 text-xs font-semibold text-slate-600">
-              <span className="inline-flex items-center gap-2">
                 <Tag size={14} />
                 Skill (optional)
               </span>
@@ -222,18 +200,6 @@ const TaskModal = ({ onCreated }: Props) => {
                   </option>
                 ))}
               </select>
-            </label>
-            <label className="space-y-1 text-xs font-semibold text-slate-600">
-              <span className="inline-flex items-center gap-2">
-                <User size={14} />
-                Assign
-              </span>
-              <input
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:border-amber-400 focus:outline-none"
-                value={form.assignee}
-                onChange={(e) => updateForm({ assignee: e.target.value })}
-                placeholder="Add assignee"
-              />
             </label>
             <label className="space-y-1 text-xs font-semibold text-slate-600">
               <span className="inline-flex items-center gap-2">
@@ -261,7 +227,9 @@ const TaskModal = ({ onCreated }: Props) => {
           </label>
 
           <div className="flex items-center justify-between border-t border-slate-200 pt-3">
-            <div className="text-xs text-slate-500">Auto place near {selectedDate}</div>
+            <div className="text-xs text-slate-500">
+              {plannedDateKey ? `Auto place on ${plannedDateKey}` : "No day selected"}
+            </div>
             <button
               type="submit"
               disabled={saving}

@@ -6,6 +6,7 @@ type TaskInput = {
   description?: string | null;
   status?: TaskStatus;
   priority?: number;
+  scheduledDate?: string | null;
   learningMinutes?: number;
   skillId?: string | null;
 };

@@ -1,8 +1,10 @@
 import type { Task } from "../../../types/task";
 
 export const normalizeTasks = (list: Task[]) => {
-  const sorted = [...list].sort(
-    (a, b) => (a.priority ?? Number.MAX_SAFE_INTEGER) - (b.priority ?? Number.MAX_SAFE_INTEGER),
-  );
-  return sorted.map((t, idx) => ({ ...t, priority: idx + 1 }));
+  return [...list].sort((a, b) => {
+    const aDate = a.scheduledDate ?? "";
+    const bDate = b.scheduledDate ?? "";
+    if (aDate !== bDate) return aDate.localeCompare(bDate);
+    return (a.priority ?? Number.MAX_SAFE_INTEGER) - (b.priority ?? Number.MAX_SAFE_INTEGER);
+  });
 };

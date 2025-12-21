@@ -10,9 +10,7 @@ export type TaskUiForm = {
   learningMinutes: number;
   dayOption: DayOption;
   notifyOption: NotifyOption;
-  priority: string;
   tags: string;
-  assignee: string;
 };
 
 type TaskUiState = {
@@ -25,6 +23,13 @@ type TaskUiState = {
   resetForm: () => void;
 };
 
+const fmtLocalKey = (d: Date) => {
+  const year = d.getFullYear();
+  const month = `${d.getMonth() + 1}`.padStart(2, "0");
+  const day = `${d.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 const defaultForm: TaskUiForm = {
   title: "",
   description: "",
@@ -32,14 +37,12 @@ const defaultForm: TaskUiForm = {
   learningMinutes: 60,
   dayOption: "today",
   notifyOption: "1h",
-  priority: "",
   tags: "",
-  assignee: "",
 };
 
 export const useTaskUiStore = create<TaskUiState>((set) => ({
   modalOpen: false,
-  selectedDate: new Date().toISOString().slice(0, 10),
+  selectedDate: fmtLocalKey(new Date()),
   form: defaultForm,
   setModalOpen: (open) => set({ modalOpen: open }),
   setSelectedDate: (date) => set({ selectedDate: date }),

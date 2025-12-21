@@ -24,10 +24,17 @@ const TaskListCard = ({ tasks }: Props) => {
               <span className="text-amber-500">{statusMeta[task.status].icon}</span>
               <div>
                 <div className="font-semibold text-slate-800">{task.title}</div>
-                <div className="text-xs text-slate-500">{statusMeta[task.status].label}</div>
               </div>
             </div>
-            <div className="text-right text-xs text-amber-500">Today</div>
+            <div className="text-right text-xs text-slate-500">
+              <div>{task.scheduledDate ? new Date(task.scheduledDate).toLocaleDateString() : "No day"}</div>
+              <div
+                className={`mt-1 inline-flex items-center gap-1 rounded-full border px-2 py-1 font-semibold ${statusMeta[task.status].badge} ${statusMeta[task.status].badgeText} ${statusMeta[task.status].badgeBorder}`}
+              >
+                {statusMeta[task.status].icon}
+                <span>{statusMeta[task.status].label}</span>
+              </div>
+            </div>
           </div>
         ))}
         {top.length === 0 ? (
