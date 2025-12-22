@@ -4,7 +4,7 @@ import type { UUID } from '../../shared';
 import { prisma } from './prisma/prisma.client';
 
 function mapToDomain(task: any): Task {
-  return new Task(
+  const domain = new Task(
     task.id,
     task.userId,
     task.title,
@@ -12,18 +12,32 @@ function mapToDomain(task: any): Task {
     task.status,
     task.priority,
     task.learningMinutes ?? 0,
+    task.dueDate,
     task.skillId ?? null,
     task.createdAt,
     task.updatedAt
   );
+  enforceDueDateStatus(domain);
+  return domain;
+}
+
+function enforceDueDateStatus(task: Task) {
+  if (task.status === 'done') return task;
+  const now = Date.now();
+  const due = new Date(task.dueDate).getTime();
+  if (due < now) {
+    task.status = 'overdue';
+  } else if (task.status === 'overdue') {
+    task.status = 'todo';
+  }
+  return task;
 }
 
 export class PrismaTaskRepository extends TaskRepository {
   async findAllByUser(userId: UUID): Promise<Task[]> {
     const tasks = await prisma.task.findMany({
       where: { userId },
-      // cast to any to allow using fresh priority field even if prisma types are stale
-      orderBy: { priority: 'desc' } as any
+      orderBy: [{ dueDate: 'asc' }, { priority: 'asc' }]
     });
     return tasks.map(mapToDomain);
   }
@@ -44,6 +58,7 @@ export class PrismaTaskRepository extends TaskRepository {
         status: task.status,
         priority: nextPriority,
         learningMinutes: task.learningMinutes,
+        dueDate: task.dueDate,
         skillId: task.skillId
       } as any
     });
@@ -59,6 +74,7 @@ export class PrismaTaskRepository extends TaskRepository {
         status: task.status,
         priority: task.priority,
         learningMinutes: task.learningMinutes,
+        dueDate: task.dueDate,
         skillId: task.skillId
       } as any
     });

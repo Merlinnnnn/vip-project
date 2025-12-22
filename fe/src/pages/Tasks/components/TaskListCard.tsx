@@ -27,7 +27,7 @@ const TaskListCard = ({ tasks }: Props) => {
               </div>
             </div>
             <div className="text-right text-xs text-slate-500">
-              <div>{task.scheduledDate ? new Date(task.scheduledDate).toLocaleDateString() : "No day"}</div>
+              <div>{task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "No day"}</div>
               <div
                 className={`mt-1 inline-flex items-center gap-1 rounded-full border px-2 py-1 font-semibold ${statusMeta[task.status].badge} ${statusMeta[task.status].badgeText} ${statusMeta[task.status].badgeBorder}`}
               >

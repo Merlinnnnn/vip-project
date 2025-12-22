@@ -23,6 +23,7 @@ export class UpdateTaskUseCase {
     if (parsedLearningMinutes !== undefined && (Number.isNaN(parsedLearningMinutes) || parsedLearningMinutes < 0)) {
       throw new Error('learningMinutes cannot be negative');
     }
+    const parsedDueDate = dto.dueDate === undefined ? undefined : this.domain.ensureDueDate(dto.dueDate);
     const nextSkillId = dto.skillId ?? previousSkillId;
     if (nextSkillId && this.skills) {
       const skill = await this.skills.findById(nextSkillId, userId);
@@ -30,7 +31,7 @@ export class UpdateTaskUseCase {
         throw new Error('Skill not found for this user');
       }
     }
-    this.domain.updateTask(task, { ...dto, learningMinutes: parsedLearningMinutes });
+    this.domain.updateTask(task, { ...dto, learningMinutes: parsedLearningMinutes, dueDate: parsedDueDate });
     const updated = await this.repo.update(task);
 
     if (this.skills) {

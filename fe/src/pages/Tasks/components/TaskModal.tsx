@@ -22,13 +22,13 @@ const TaskModal = ({ onCreated }: Props) => {
   const [saving, setSaving] = useState(false);
   const [showWeek, setShowWeek] = useState(false);
   const rollingWeek = useMemo(() => buildWeek(new Date()), []);
-  const resolveScheduledDate = () => {
-    if (form.dayOption === "none") return null;
+  const resolveDueDate = () => {
     if (form.dayOption === "today") return fmtKey(new Date());
     if (form.dayOption === "tomorrow") return fmtKey(addDays(new Date(), 1));
     return selectedDate;
   };
-  const plannedDateKey = resolveScheduledDate();
+  const plannedDateKey = resolveDueDate();
+  const dueKey = (date?: string) => (date ? new Date(date).toISOString().slice(0, 10) : "");
 
   if (!modalOpen) return null;
 
@@ -38,8 +38,8 @@ const TaskModal = ({ onCreated }: Props) => {
     try {
       setSaving(true);
       const duration = ensureDuration(form.learningMinutes);
-      const scheduledDate = resolveScheduledDate();
-      const sameDayTasks = tasks.filter((t) => (t.scheduledDate ?? null) === scheduledDate);
+      const dueDate = resolveDueDate();
+      const sameDayTasks = tasks.filter((t) => (t.dueDate ? dueKey(t.dueDate) : null) === dueDate);
       const nextPriority = sameDayTasks.length + 1;
 
       const created = await createTask(
@@ -49,14 +49,14 @@ const TaskModal = ({ onCreated }: Props) => {
           description: form.description.trim() || null,
           status: "todo",
           priority: nextPriority,
-          scheduledDate,
+          dueDate: dueDate ?? undefined,
           learningMinutes: duration,
           skillId: form.skillId || null,
         },
       );
       const createdWithSchedule = {
         ...created,
-        scheduledDate: created.scheduledDate ?? scheduledDate,
+        dueDate: created.dueDate ?? (dueDate ?? ""),
         priority: created.priority ?? nextPriority,
       };
       setTasks(normalizeTasks([...tasks, createdWithSchedule]));

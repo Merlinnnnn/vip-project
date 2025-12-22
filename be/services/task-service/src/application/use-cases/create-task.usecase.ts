@@ -15,6 +15,10 @@ export class CreateTaskUseCase {
 
   async execute(userId: UUID, dto: CreateTaskDto) {
     const status = dto.status ?? 'todo';
+    if (!dto.dueDate) {
+      throw new Error('dueDate is required');
+    }
+    const dueDate = this.domain.ensureDueDate(dto.dueDate);
     const learningMinutes =
       dto.learningMinutes === undefined ? 0 : Number(dto.learningMinutes);
     if (Number.isNaN(learningMinutes) || learningMinutes < 0) {
@@ -36,9 +40,11 @@ export class CreateTaskUseCase {
       status,
       dto.priority ?? Date.now(),
       learningMinutes,
+      dueDate,
       skillId
     );
     this.domain.ensureValidStatus(task.status);
+    this.domain.enforceStatusForDueDate(task);
     const created = await this.repo.create(task);
     if (skillId && learningMinutes > 0 && this.skills) {
       await this.skills.incrementTotalMinutes(skillId, userId, learningMinutes);

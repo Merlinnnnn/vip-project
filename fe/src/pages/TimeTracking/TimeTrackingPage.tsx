@@ -2,8 +2,12 @@ import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import Card from "../../components/common/Card";
 import PageTitle from "../../components/common/PageTitle";
 import TimerWidget from "../../components/time-tracking/TimerWidget";
+import CalendarCard from "../Tasks/components/CalendarCard";
+import { statusMeta } from "../Tasks/meta";
+import { normalizeTasks } from "../Tasks/utils/normalize";
 import { useTasksStore } from "../../store/useTasksStore";
 import { useTimerStore } from "../../store/useTimerStore";
+import { useTaskUiStore } from "../../store/useTaskUiStore";
 import { listTasks } from "../../lib/tasksApi";
 import { useAuth } from "../../routes/AuthContext";
 import type { Task } from "../../types/task";
@@ -32,6 +36,7 @@ const TimeTrackingPage = () => {
 
   const { user, token } = useAuth();
   const { tasks, setTasks } = useTasksStore();
+  const { selectedDate } = useTaskUiStore();
   const {
     activeTaskId,
     elapsed,
@@ -52,9 +57,15 @@ const TimeTrackingPage = () => {
     [background],
   );
 
+  const dueKey = (date?: string) => (date ? new Date(date).toISOString().slice(0, 10) : "");
+  const tasksForSelectedDay = useMemo(
+    () => tasks.filter((task) => !task.dueDate || dueKey(task.dueDate) === selectedDate),
+    [selectedDate, tasks],
+  );
+
   const orderedTasks = useMemo(() => {
-    return [...tasks].sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0));
-  }, [tasks]);
+    return [...tasksForSelectedDay].sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0));
+  }, [tasksForSelectedDay]);
 
   const incompleteTasks = useMemo(
     () => orderedTasks.filter((task) => task.status !== "done"),
@@ -121,7 +132,7 @@ const TimeTrackingPage = () => {
       setTasksError(null);
       try {
         const data = await listTasks({ userId: user.id, token });
-        if (active) setTasks(data);
+        if (active) setTasks(normalizeTasks(data));
       } catch (error) {
         if (!active) return;
         const message = error instanceof Error ? error.message : "Failed to load tasks";
@@ -297,58 +308,74 @@ const TimeTrackingPage = () => {
         </div>
       </div>
 
-      <Card title="Tasks">
-        {tasksError ? (
-          <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
-            {tasksError}
-          </div>
-        ) : null}
-        <div className="overflow-hidden rounded-lg border border-slate-100/70 bg-white/40 backdrop-blur">
-          <table className="min-w-full text-sm">
-            <thead className="bg-slate-50/80 text-left text-xs uppercase text-slate-500 backdrop-blur">
-              <tr>
-                <th className="px-4 py-2">Task</th>
-                <th className="px-4 py-2">Status</th>
-                <th className="px-4 py-2">Priority</th>
-                <th className="px-4 py-2">Est. (min)</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 bg-white/60 backdrop-blur">
-              {orderedTasks.length === 0 ? (
-                <tr>
-                  <td className="px-4 py-4 text-sm text-slate-500" colSpan={4}>
-                    {loadingTasks ? "Loading tasks..." : "No tasks found."}
-                  </td>
-                </tr>
-              ) : (
-                orderedTasks.map((task) => {
-                  const isActive = task.id === activeTaskId;
-                  return (
-                    <tr
-                      key={task.id}
-                      onClick={() => handleSelectTask(task)}
-                      className={`cursor-pointer transition ${
-                        isActive
-                          ? "bg-white text-slate-900 shadow-inner"
-                          : "hover:bg-white/70"
-                      }`}
-                    >
-                      <td className="px-4 py-3 font-semibold text-slate-900">
-                        {task.title}
-                      </td>
-                      <td className="px-4 py-3 text-slate-600">{task.status}</td>
-                      <td className="px-4 py-3 text-slate-600">{task.priority ?? "-"}</td>
-                      <td className="px-4 py-3 text-slate-600">
-                        {task.learningMinutes ?? "-"}
+      <div className="grid gap-4 lg:grid-cols-12">
+        <div className="lg:col-span-4">
+          <CalendarCard />
+        </div>
+        <div className="lg:col-span-8">
+          <Card title="Tasks">
+            {tasksError ? (
+              <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+                {tasksError}
+              </div>
+            ) : null}
+            <div className="overflow-hidden rounded-lg border border-slate-100/70 bg-white/40 backdrop-blur">
+              <table className="min-w-full text-sm">
+                <thead className="bg-slate-50/80 text-left text-xs uppercase text-slate-500 backdrop-blur">
+                  <tr>
+                    <th className="px-4 py-2">Task</th>
+                    <th className="px-4 py-2">Day</th>
+                    <th className="px-4 py-2">Status</th>
+                    <th className="px-4 py-2">Est. (min)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white/60 backdrop-blur">
+                  {orderedTasks.length === 0 ? (
+                    <tr>
+                      <td className="px-4 py-4 text-sm text-slate-500" colSpan={4}>
+                        {loadingTasks ? "Loading tasks..." : "No tasks found."}
                       </td>
                     </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                  ) : (
+                    orderedTasks.map((task) => {
+                      const isActive = task.id === activeTaskId;
+                      return (
+                        <tr
+                          key={task.id}
+                          onClick={() => handleSelectTask(task)}
+                          className={`cursor-pointer transition ${
+                            isActive
+                              ? "bg-white text-slate-900 shadow-inner"
+                              : "hover:bg-white/70"
+                          }`}
+                        >
+                          <td className="px-4 py-3 font-semibold text-slate-900">
+                            {task.title}
+                          </td>
+                          <td className="px-4 py-3 text-slate-600">
+                            {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "-"}
+                          </td>
+                          <td className="px-4 py-3 text-slate-600">
+                            <span
+                              className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs font-semibold ${statusMeta[task.status].badge} ${statusMeta[task.status].badgeText} ${statusMeta[task.status].badgeBorder}`}
+                            >
+                              {statusMeta[task.status].icon}
+                              <span>{statusMeta[task.status].label}</span>
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-slate-600">
+                            {task.learningMinutes ?? "-"}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Card>
         </div>
-      </Card>
+      </div>
 
       {isFullscreen && (
         <div className="fixed inset-0 z-50">

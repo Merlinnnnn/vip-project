@@ -52,10 +52,11 @@ const TasksPage = () => {
     void fetch();
   }, [setSkills, token, user]);
 
+  const dueKey = (taskDate?: string) => (taskDate ? new Date(taskDate).toISOString().slice(0, 10) : "");
   const tasksForSelectedDay = useMemo(
     () =>
       tasks
-        .filter((t) => !t.scheduledDate || t.scheduledDate === selectedDate)
+        .filter((t) => !t.dueDate || dueKey(t.dueDate) === selectedDate)
         .sort((a, b) => (a.priority ?? Number.MAX_SAFE_INTEGER) - (b.priority ?? Number.MAX_SAFE_INTEGER)),
     [tasks, selectedDate],
   );

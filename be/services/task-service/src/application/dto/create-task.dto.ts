@@ -6,5 +6,6 @@ export type CreateTaskDto = {
   status?: TaskStatus;
   priority?: number;
   learningMinutes?: number;
+  dueDate: string | Date;
   skillId?: string | null;
 };

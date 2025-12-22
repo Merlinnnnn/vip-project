@@ -27,4 +27,11 @@ export const statusMeta: Record<
     badgeText: "text-emerald-800",
     badgeBorder: "border-emerald-200",
   },
+  overdue: {
+    label: "Overdue",
+    icon: <Clock3 size={14} />,
+    badge: "bg-rose-100",
+    badgeText: "text-rose-800",
+    badgeBorder: "border-rose-200",
+  },
 };

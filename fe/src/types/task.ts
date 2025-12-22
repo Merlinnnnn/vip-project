@@ -1,4 +1,4 @@
-export type TaskStatus = "todo" | "in_progress" | "done";
+export type TaskStatus = "todo" | "in_progress" | "done" | "overdue";
 
 export type Task = {
   id: string;
@@ -7,7 +7,7 @@ export type Task = {
   description?: string | null;
   status: TaskStatus;
   priority?: number;
-  scheduledDate?: string | null;
+  dueDate: string;
   learningMinutes?: number;
   skillId?: string | null;
   createdAt?: string;

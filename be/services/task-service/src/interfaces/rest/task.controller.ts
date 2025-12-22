@@ -43,6 +43,7 @@ export class TaskController {
         status: req.body.status,
         priority: req.body.priority,
         learningMinutes: req.body.learningMinutes,
+        dueDate: req.body.dueDate,
         skillId: req.body.skillId
       });
       res.status(201).json(task);
