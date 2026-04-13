@@ -1,20 +1,16 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { RegisterDto } from '../../application/dto/register.dto';
 import { LoginDto } from '../../application/dto/login.dto';
-import { RegisterUseCase } from '../../application/use-cases/register.usecase';
-import { LoginUseCase } from '../../application/use-cases/login.usecase';
-import { GetMeUseCase } from '../../application/use-cases/get-me.usecase';
-import { RefreshTokenUseCase } from '../../application/use-cases/refresh-token.usecase';
+import { Mediator } from '../../shared/mediator';
+import { RegisterCommand } from '../../application/handlers/register.handler';
+import { LoginCommand } from '../../application/handlers/login.handler';
+import { GetMeQuery } from '../../application/handlers/get-me.query';
+import { RefreshTokenCommand } from '../../application/handlers/refresh-token.handler';
 
 export class AuthController {
   public readonly router: Router;
 
-  constructor(
-    private readonly registerUseCase: RegisterUseCase,
-    private readonly loginUseCase: LoginUseCase,
-    private readonly getMeUseCase: GetMeUseCase,
-    private readonly refreshTokenUseCase: RefreshTokenUseCase
-  ) {
+  constructor(private readonly mediator: Mediator) {
     this.router = Router();
     this.router.post('/register', this.register);
     this.router.post('/login', this.login);
@@ -26,7 +22,7 @@ export class AuthController {
     try {
       console.log('[AUTH][REGISTER] request body:', req.body);
       const dto = new RegisterDto(req.body.email, req.body.password, req.body.name);
-      const result = await this.registerUseCase.execute(dto);
+      const result = await this.mediator.send(new RegisterCommand(dto));
       res.json(result);
     } catch (err) {
       this.handleError(err, res, next);
@@ -37,7 +33,7 @@ export class AuthController {
     try {
       console.log('[AUTH][LOGIN] request body:', req.body);
       const dto = new LoginDto(req.body.email, req.body.password);
-      const result = await this.loginUseCase.execute(dto);
+      const result = await this.mediator.send(new LoginCommand(dto));
       res.json(result);
     } catch (err) {
       this.handleError(err, res, next);
@@ -53,7 +49,7 @@ export class AuthController {
         return;
       }
       console.log('[AUTH][ME] userId:', userId);
-      const result = await this.getMeUseCase.execute(userId);
+      const result = await this.mediator.query(new GetMeQuery(userId));
       res.json(result);
     } catch (err) {
       this.handleError(err, res, next);
@@ -68,7 +64,7 @@ export class AuthController {
         return;
       }
       console.log('[AUTH][REFRESH] token received');
-      const result = await this.refreshTokenUseCase.execute(refreshToken);
+      const result = await this.mediator.send(new RefreshTokenCommand(refreshToken));
       res.json(result);
     } catch (err) {
       this.handleError(err, res, next);
@@ -83,7 +79,6 @@ export class AuthController {
     if (/already in use/i.test(message)) status = 409;
     if (/not found/i.test(message)) status = 404;
     console.error('[AUTH][ERROR]', message);
-    // If headers already sent, delegate to default error handler
     if (res.headersSent) {
       return next(err);
     }

@@ -1,18 +1,18 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
-import { CreateTaskUseCase } from '../../application/use-cases/create-task.usecase';
-import { UpdateTaskUseCase } from '../../application/use-cases/update-task.usecase';
-import { DeleteTaskUseCase } from '../../application/use-cases/delete-task.usecase';
-import { ListTasksUseCase } from '../../application/use-cases/list-tasks.usecase';
+import { Mediator } from '../../shared/mediator';
 import { TokenStore } from '../../infrastructure/cache/token.store';
+import { 
+  CreateTaskCommand, 
+  UpdateTaskCommand, 
+  DeleteTaskCommand, 
+  ListTasksQuery 
+} from '../../application/handlers/tasks.handler';
 
 export class TaskController {
   public readonly router: Router;
 
   constructor(
-    private readonly createTask: CreateTaskUseCase,
-    private readonly updateTask: UpdateTaskUseCase,
-    private readonly deleteTask: DeleteTaskUseCase,
-    private readonly listTasks: ListTasksUseCase,
+    private readonly mediator: Mediator,
     private readonly tokenStore?: TokenStore
   ) {
     this.router = Router();
@@ -26,7 +26,7 @@ export class TaskController {
     try {
       const userId = await this.getUserId(_req, res);
       if (!userId) return;
-      const tasks = await this.listTasks.execute(userId);
+      const tasks = await this.mediator.query(new ListTasksQuery(userId));
       res.json(tasks);
     } catch (err) {
       next(err);
@@ -37,7 +37,7 @@ export class TaskController {
     try {
       const userId = await this.getUserId(req, res);
       if (!userId) return;
-      const task = await this.createTask.execute(userId, {
+      const task = await this.mediator.send(new CreateTaskCommand(userId, {
         title: req.body.title,
         description: req.body.description,
         status: req.body.status,
@@ -45,7 +45,7 @@ export class TaskController {
         learningMinutes: req.body.learningMinutes,
         dueDate: req.body.dueDate,
         skillId: req.body.skillId
-      });
+      }));
       res.status(201).json(task);
     } catch (err) {
       next(err);
@@ -56,7 +56,7 @@ export class TaskController {
     try {
       const userId = await this.getUserId(req, res);
       if (!userId) return;
-      const task = await this.updateTask.execute(userId, req.params.id, req.body);
+      const task = await this.mediator.send(new UpdateTaskCommand(userId, req.params.id, req.body));
       res.json(task);
     } catch (err) {
       next(err);
@@ -67,7 +67,7 @@ export class TaskController {
     try {
       const userId = await this.getUserId(req, res);
       if (!userId) return;
-      await this.deleteTask.execute(userId, req.params.id);
+      await this.mediator.send(new DeleteTaskCommand(userId, req.params.id));
       res.status(204).send();
     } catch (err) {
       next(err);

@@ -1,13 +1,18 @@
-import { randomUUID } from 'crypto';
 import { RegisterDto } from '../dto/register.dto';
 import { AuthResponseDto } from '../dto/auth-response.dto';
+import { IRequest, IRequestHandler } from '../../shared/mediator';
+import { randomUUID } from 'crypto';
 import { User } from '../../domain/entities/user.entity';
 import { UserRepository } from '../../domain/repositories/user.repository';
 import { UserDomainService } from '../../domain/services/user-domain.service';
 import { JwtProvider } from '../../infrastructure/security/jwt-provider';
 import { PasswordHasher } from '../../infrastructure/security/password-hasher';
 
-export class RegisterUseCase {
+export class RegisterCommand implements IRequest<AuthResponseDto> {
+  constructor(public readonly dto: RegisterDto) {}
+}
+
+export class RegisterHandler implements IRequestHandler<RegisterCommand, AuthResponseDto> {
   constructor(
     private readonly userRepository: UserRepository,
     private readonly userDomainService: UserDomainService,
@@ -15,7 +20,8 @@ export class RegisterUseCase {
     private readonly jwtProvider: JwtProvider
   ) {}
 
-  async execute(dto: RegisterDto): Promise<AuthResponseDto> {
+  async handle(command: RegisterCommand): Promise<AuthResponseDto> {
+    const { dto } = command;
     const existing = await this.userRepository.findByEmail(dto.email);
     this.userDomainService.ensureEmailAvailable(existing, dto.email);
 

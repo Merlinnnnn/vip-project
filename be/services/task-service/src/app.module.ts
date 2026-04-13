@@ -3,39 +3,59 @@ import cors from 'cors';
 import { TaskDomainService } from './domain/services/task-domain.service';
 import { PrismaTaskRepository } from './infrastructure/persistence/task.prisma.repository';
 import { PrismaSkillRepository } from './infrastructure/persistence/skill.prisma.repository';
-import { CreateTaskUseCase } from './application/use-cases/create-task.usecase';
-import { UpdateTaskUseCase } from './application/use-cases/update-task.usecase';
-import { DeleteTaskUseCase } from './application/use-cases/delete-task.usecase';
-import { ListTasksUseCase } from './application/use-cases/list-tasks.usecase';
-import { CreateSkillUseCase } from './application/use-cases/create-skill.usecase';
-import { ListSkillsUseCase } from './application/use-cases/list-skills.usecase';
-import { UpdateSkillUseCase } from './application/use-cases/update-skill.usecase';
-import { DeleteSkillUseCase } from './application/use-cases/delete-skill.usecase';
 import { TaskController } from './interfaces/rest/task.controller';
 import { TokenStore } from './infrastructure/cache/token.store';
 import { AuthController } from './interfaces/rest/auth.controller';
 import { SkillController } from './interfaces/rest/skill.controller';
+import { Mediator } from './shared/mediator';
+import {
+  CreateTaskCommand,
+  CreateTaskHandler,
+  UpdateTaskCommand,
+  UpdateTaskHandler,
+  DeleteTaskCommand,
+  DeleteTaskHandler,
+  ListTasksQuery,
+  ListTasksHandler
+} from './application/handlers/tasks.handler';
+import {
+  CreateSkillCommand,
+  CreateSkillHandler,
+  UpdateSkillCommand,
+  UpdateSkillHandler,
+  DeleteSkillCommand,
+  DeleteSkillHandler,
+  ListSkillsQuery,
+  ListSkillsHandler
+} from './application/handlers/skills.handler';
 
 export function createApp() {
   const app = express();
   app.use(cors());
   app.use(express.json());
 
-  const repo = new PrismaTaskRepository(); // switch to InMemoryTaskRepository for quick dev
-  const skillRepo = new PrismaSkillRepository(); // switch to InMemorySkillRepository for quick dev
+  const repo = new PrismaTaskRepository();
+  const skillRepo = new PrismaSkillRepository();
   const domain = new TaskDomainService();
-  const createTask = new CreateTaskUseCase(repo, domain, skillRepo);
-  const updateTask = new UpdateTaskUseCase(repo, domain, skillRepo);
-  const deleteTask = new DeleteTaskUseCase(repo, skillRepo);
-  const listTasks = new ListTasksUseCase(repo);
-  const createSkill = new CreateSkillUseCase(skillRepo);
-  const listSkills = new ListSkillsUseCase(skillRepo);
-  const updateSkill = new UpdateSkillUseCase(skillRepo);
-  const deleteSkill = new DeleteSkillUseCase(skillRepo);
   const tokenStore = new TokenStore();
 
-  const tasksController = new TaskController(createTask, updateTask, deleteTask, listTasks, tokenStore);
-  const skillsController = new SkillController(createSkill, listSkills, updateSkill, deleteSkill, tokenStore);
+  // Mediator setup
+  const mediator = new Mediator();
+
+  // Task handlers
+  mediator.register(CreateTaskCommand, new CreateTaskHandler(repo, domain, skillRepo));
+  mediator.register(UpdateTaskCommand, new UpdateTaskHandler(repo, domain, skillRepo));
+  mediator.register(DeleteTaskCommand, new DeleteTaskHandler(repo, skillRepo));
+  mediator.register(ListTasksQuery, new ListTasksHandler(repo));
+
+  // Skill handlers
+  mediator.register(CreateSkillCommand, new CreateSkillHandler(skillRepo));
+  mediator.register(UpdateSkillCommand, new UpdateSkillHandler(skillRepo));
+  mediator.register(DeleteSkillCommand, new DeleteSkillHandler(skillRepo));
+  mediator.register(ListSkillsQuery, new ListSkillsHandler(skillRepo));
+
+  const tasksController = new TaskController(mediator, tokenStore);
+  const skillsController = new SkillController(mediator, tokenStore);
   const authController = new AuthController(tokenStore);
 
   app.use('/api/tasks', tasksController.router);

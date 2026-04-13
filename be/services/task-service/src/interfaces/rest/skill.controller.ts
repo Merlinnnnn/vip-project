@@ -1,18 +1,18 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
-import { CreateSkillUseCase } from '../../application/use-cases/create-skill.usecase';
-import { ListSkillsUseCase } from '../../application/use-cases/list-skills.usecase';
-import { UpdateSkillUseCase } from '../../application/use-cases/update-skill.usecase';
-import { DeleteSkillUseCase } from '../../application/use-cases/delete-skill.usecase';
+import { Mediator } from '../../shared/mediator';
 import { TokenStore } from '../../infrastructure/cache/token.store';
+import {
+  CreateSkillCommand,
+  ListSkillsQuery,
+  UpdateSkillCommand,
+  DeleteSkillCommand
+} from '../../application/handlers/skills.handler';
 
 export class SkillController {
   public readonly router: Router;
 
   constructor(
-    private readonly createSkill: CreateSkillUseCase,
-    private readonly listSkills: ListSkillsUseCase,
-    private readonly updateSkill: UpdateSkillUseCase,
-    private readonly deleteSkill: DeleteSkillUseCase,
+    private readonly mediator: Mediator,
     private readonly tokenStore?: TokenStore
   ) {
     this.router = Router();
@@ -26,7 +26,7 @@ export class SkillController {
     try {
       const userId = await this.getUserId(req, res);
       if (!userId) return;
-      const skills = await this.listSkills.execute(userId);
+      const skills = await this.mediator.query(new ListSkillsQuery(userId));
       res.json(skills);
     } catch (err) {
       next(err);
@@ -37,10 +37,10 @@ export class SkillController {
     try {
       const userId = await this.getUserId(req, res);
       if (!userId) return;
-      const skill = await this.createSkill.execute(userId, {
+      const skill = await this.mediator.send(new CreateSkillCommand(userId, {
         name: req.body.name,
         targetMinutes: req.body.targetMinutes
-      });
+      }));
       res.status(201).json(skill);
     } catch (err) {
       next(err);
@@ -51,10 +51,10 @@ export class SkillController {
     try {
       const userId = await this.getUserId(req, res);
       if (!userId) return;
-      const skill = await this.updateSkill.execute(userId, req.params.id, {
+      const skill = await this.mediator.send(new UpdateSkillCommand(userId, req.params.id, {
         name: req.body.name,
         targetMinutes: req.body.targetMinutes
-      });
+      }));
       res.json(skill);
     } catch (err) {
       next(err);
@@ -65,7 +65,7 @@ export class SkillController {
     try {
       const userId = await this.getUserId(req, res);
       if (!userId) return;
-      await this.deleteSkill.execute(userId, req.params.id);
+      await this.mediator.send(new DeleteSkillCommand(userId, req.params.id));
       res.status(204).send();
     } catch (err) {
       next(err);

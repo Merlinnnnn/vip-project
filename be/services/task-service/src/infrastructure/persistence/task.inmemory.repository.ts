@@ -37,6 +37,7 @@ export class InMemoryTaskRepository extends TaskRepository {
       task.status,
       nextPriority,
       task.learningMinutes ?? 0,
+      task.dueDate || new Date(),
       task.skillId ?? null,
       task.createdAt,
       task.updatedAt
@@ -76,6 +77,7 @@ export class InMemoryTaskRepository extends TaskRepository {
           t.status,
           t.priority,
           t.learningMinutes,
+          t.dueDate || new Date(),
           t.skillId ?? null,
           t.createdAt,
           t.updatedAt
