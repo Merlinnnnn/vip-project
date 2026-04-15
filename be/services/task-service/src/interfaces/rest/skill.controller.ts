@@ -5,7 +5,8 @@ import {
   CreateSkillCommand,
   ListSkillsQuery,
   UpdateSkillCommand,
-  DeleteSkillCommand
+  DeleteSkillCommand,
+  GetUserStatsQuery
 } from '../../application/handlers/skills.handler';
 
 export class SkillController {
@@ -17,6 +18,7 @@ export class SkillController {
   ) {
     this.router = Router();
     this.router.get('/', this.getAll);
+    this.router.get('/stats', this.getStats);
     this.router.post('/', this.create);
     this.router.put('/:id', this.update);
     this.router.delete('/:id', this.remove);
@@ -28,6 +30,17 @@ export class SkillController {
       if (!userId) return;
       const skills = await this.mediator.query(new ListSkillsQuery(userId));
       res.json(skills);
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  private getStats = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = await this.getUserId(req, res);
+      if (!userId) return;
+      const stats = await this.mediator.query(new GetUserStatsQuery(userId));
+      res.json(stats);
     } catch (err) {
       next(err);
     }

@@ -37,3 +37,8 @@ export const deleteSkill = (auth: AuthHeaders, id: string): Promise<void> =>
   skillApi.delete<void>(id, {
     headers: withAuthHeaders(auth, auth.token ? { Authorization: `Bearer ${auth.token}` } : undefined),
   });
+
+export const getStats = (auth: AuthHeaders): Promise<any> =>
+  skillApi.get<any>("stats", {
+    headers: withAuthHeaders(auth, auth.token ? { Authorization: `Bearer ${auth.token}` } : undefined),
+  });

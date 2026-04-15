@@ -26,7 +26,9 @@ import {
   DeleteSkillCommand,
   DeleteSkillHandler,
   ListSkillsQuery,
-  ListSkillsHandler
+  ListSkillsHandler,
+  GetUserStatsQuery,
+  GetUserStatsHandler
 } from './application/handlers/skills.handler';
 
 export function createApp() {
@@ -53,6 +55,7 @@ export function createApp() {
   mediator.register(UpdateSkillCommand, new UpdateSkillHandler(skillRepo));
   mediator.register(DeleteSkillCommand, new DeleteSkillHandler(skillRepo));
   mediator.register(ListSkillsQuery, new ListSkillsHandler(skillRepo));
+  mediator.register(GetUserStatsQuery, new GetUserStatsHandler(skillRepo));
 
   const tasksController = new TaskController(mediator, tokenStore);
   const skillsController = new SkillController(mediator, tokenStore);

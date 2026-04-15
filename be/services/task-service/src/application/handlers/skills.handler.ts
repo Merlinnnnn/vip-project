@@ -22,6 +22,10 @@ export class ListSkillsQuery implements IRequest<Skill[]> {
   constructor(public readonly userId: UUID) {}
 }
 
+export class GetUserStatsQuery implements IRequest<any> {
+  constructor(public readonly userId: UUID) {}
+}
+
 // Handlers
 export class CreateSkillHandler implements IRequestHandler<CreateSkillCommand, Skill> {
   constructor(private readonly repo: SkillRepository) {}
@@ -88,5 +92,41 @@ export class ListSkillsHandler implements IRequestHandler<ListSkillsQuery, Skill
 
   async handle(query: ListSkillsQuery): Promise<Skill[]> {
     return this.repo.findAllByUser(query.userId);
+  }
+}
+
+export class GetUserStatsHandler implements IRequestHandler<GetUserStatsQuery, any> {
+  constructor(private readonly repo: SkillRepository) {}
+
+  async handle(query: GetUserStatsQuery): Promise<any> {
+    const skills = await this.repo.findAllByUser(query.userId);
+    
+    const totalMinutes = skills.reduce((acc, s) => acc + s.totalMinutes, 0);
+    const totalLevel = skills.reduce((acc, s) => acc + s.level, 0);
+    
+    const topSkills = [...skills]
+      .sort((a, b) => b.totalMinutes - a.totalMinutes)
+      .slice(0, 3)
+      .map(s => ({
+        name: s.name,
+        level: s.level,
+        totalMinutes: s.totalMinutes,
+        rank: s.rank
+      }));
+
+    // Calculate global rank based on totalLevel
+    let globalRank = 'Beginner';
+    if (totalLevel >= 100) globalRank = 'Grandmaster';
+    else if (totalLevel >= 50) globalRank = 'Expert';
+    else if (totalLevel >= 25) globalRank = 'Intermediate';
+    else if (totalLevel >= 10) globalRank = 'Aspirant';
+
+    return {
+      totalLevel,
+      totalMinutes,
+      skillsCount: skills.length,
+      topSkills,
+      globalRank
+    };
   }
 }

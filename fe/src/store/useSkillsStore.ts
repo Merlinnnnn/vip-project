@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Skill } from "../types/skill";
+import type { Skill, SkillStats } from "../types/skill";
 
 type SkillsState = {
   skills: Skill[];
@@ -8,6 +8,8 @@ type SkillsState = {
   bumpMinutes: (skillId: string, delta: number) => void;
   updateSkill: (skill: Skill) => void;
   removeSkill: (id: string) => void;
+  stats: SkillStats | null;
+  setStats: (stats: SkillStats) => void;
   clear: () => void;
 };
 
@@ -34,5 +36,7 @@ export const useSkillsStore = create<SkillsState>((set) => ({
     set((state) => ({
       skills: state.skills.filter((s) => s.id !== id),
     })),
-  clear: () => set({ skills: [] }),
+  stats: null,
+  setStats: (stats) => set({ stats }),
+  clear: () => set({ skills: [], stats: null }),
 }));

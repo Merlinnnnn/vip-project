@@ -14,7 +14,8 @@ import Card from "../../components/common/Card";
 import PageTitle from "../../components/common/PageTitle";
 import TaskList from "../../components/tasks/TaskList";
 import { listTasks } from "../../lib/tasksApi";
-import { listSkills } from "../../lib/skillsApi";
+import { listSkills, getStats } from "../../lib/skillsApi";
+import HeroProfile from "./components/HeroProfile";
 import { useAuth } from "../../routes/AuthContext";
 import { useTasksStore } from "../../store/useTasksStore";
 import { useSkillsStore } from "../../store/useSkillsStore";
@@ -45,7 +46,7 @@ const formatDayLabel = (date: Date) =>
 const DashboardPage = () => {
   const { user, token } = useAuth();
   const { tasks, setTasks } = useTasksStore();
-  const { skills, setSkills } = useSkillsStore();
+  const { skills, setSkills, stats, setStats } = useSkillsStore();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -79,10 +80,24 @@ const DashboardPage = () => {
     [setSkills, token, user],
   );
 
+  const loadStats = useMemo(
+    () => async () => {
+      if (!user) return;
+      try {
+        const data = await getStats({ userId: user.id, token });
+        setStats(data);
+      } catch (err) {
+        console.error("Failed to load RPG stats", err);
+      }
+    },
+    [setStats, token, user],
+  );
+
   useEffect(() => {
     void loadTasks();
     void loadSkills();
-  }, [loadSkills, loadTasks]);
+    void loadStats();
+  }, [loadSkills, loadTasks, loadStats]);
 
   const statusStats = useMemo(() => {
     return tasks.reduce(
@@ -264,6 +279,8 @@ const DashboardPage = () => {
         title="Dashboard"
         subtitle="Tong quan cong viec, trang thai va toc do hoan thanh."
       />
+
+      {stats && <HeroProfile stats={stats} />}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Card>
