@@ -101,11 +101,11 @@ const DashboardPage = () => {
 
   const statusStats = useMemo(() => {
     return tasks.reduce(
-      (acc, task) => {
+      (acc: Record<TaskStatus, number>, task) => {
         acc[task.status] += 1;
         return acc;
       },
-      { todo: 0, in_progress: 0, done: 0 },
+      { todo: 0, in_progress: 0, done: 0, overdue: 0 },
     );
   }, [tasks]);
 
@@ -326,14 +326,19 @@ const DashboardPage = () => {
               <Pie data={statusPieData} options={pieOptions} />
             </div>
             <div className="flex-1 space-y-3">
-              {(["done", "in_progress", "todo"] as TaskStatus[]).map((status) => {
-                const label = status === "done" ? "Done" : status === "in_progress" ? "In progress" : "To do";
+              {(["done", "in_progress", "todo", "overdue"] as TaskStatus[]).map((status) => {
+                const label = 
+                  status === "done" ? "Done" : 
+                  status === "in_progress" ? "In progress" : 
+                  status === "todo" ? "To do" : "Overdue";
                 const color =
                   status === "done"
                     ? "bg-emerald-500"
                     : status === "in_progress"
                       ? "bg-blue-500"
-                      : "bg-amber-500";
+                      : status === "todo"
+                        ? "bg-amber-500"
+                        : "bg-rose-500";
                 const count = statusStats[status];
                 const percent = tasks.length ? Math.round((count / tasks.length) * 100) : 0;
                 return (

@@ -11,6 +11,7 @@ const statusStyles: Record<Task["status"], string> = {
   todo: "bg-amber-50 text-amber-800",
   in_progress: "bg-blue-50 text-blue-800",
   done: "bg-emerald-50 text-emerald-700",
+  overdue: "bg-rose-50 text-rose-800",
 };
 
 const TaskList = ({ tasks, onDelete, skillNames }: Props) => {
