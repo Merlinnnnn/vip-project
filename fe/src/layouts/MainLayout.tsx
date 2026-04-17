@@ -2,12 +2,14 @@ import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import Header from "../components/layout/Header";
 import Sidebar from "../components/layout/Sidebar";
+import { useNotifications } from "../hooks/useNotifications";
 
 type Props = {
   children: ReactNode;
 };
 
-const MainLayout = ({ children }: Props) => {
+  const MainLayout = ({ children }: Props) => {
+  useNotifications();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
     const stored = localStorage.getItem("sidebarCollapsed");
     return stored === "true";

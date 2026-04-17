@@ -1,4 +1,5 @@
-import { IRequest, IRequestHandler } from '../../shared/mediator';
+import { IRequest, IRequestHandler, Mediator } from '../../shared/mediator';
+import { TaskScheduledEvent } from '../events/task-events';
 import { TaskRepository } from '../../domain/repositories/task.repository';
 import { SkillRepository } from '../../domain/repositories/skill.repository';
 import { TaskDomainService } from '../../domain/services/task-domain.service';
@@ -30,6 +31,7 @@ export class CreateTaskHandler implements IRequestHandler<CreateTaskCommand, Tas
   constructor(
     private readonly repo: TaskRepository,
     private readonly domain: TaskDomainService,
+    private readonly mediator: Mediator,
     private readonly skills?: SkillRepository
   ) {}
 
@@ -69,6 +71,10 @@ export class CreateTaskHandler implements IRequestHandler<CreateTaskCommand, Tas
     if (skillId && learningMinutes > 0 && this.skills) {
       await this.skills.incrementTotalMinutes(skillId, userId, learningMinutes);
     }
+    
+    // Publish scheduling event
+    void this.mediator.publish(new TaskScheduledEvent(created.id, created.userId!, created.title, created.dueDate));
+
     return created;
   }
 }
@@ -77,6 +83,7 @@ export class UpdateTaskHandler implements IRequestHandler<UpdateTaskCommand, Tas
   constructor(
     private readonly repo: TaskRepository,
     private readonly domain: TaskDomainService,
+    private readonly mediator: Mediator,
     private readonly skills?: SkillRepository
   ) {}
 
@@ -86,6 +93,7 @@ export class UpdateTaskHandler implements IRequestHandler<UpdateTaskCommand, Tas
     if (!task) {
       throw new Error('Task not found');
     }
+    const previousDueDateString = task.dueDate;
     const previousSkillId = task.skillId ?? null;
     const previousMinutes = task.learningMinutes ?? 0;
     const parsedLearningMinutes =
@@ -120,6 +128,10 @@ export class UpdateTaskHandler implements IRequestHandler<UpdateTaskCommand, Tas
           await this.skills.incrementTotalMinutes(newSkillId, userId, newMinutes);
         }
       }
+    }
+
+    if (updated.dueDate !== previousDueDateString) {
+      void this.mediator.publish(new TaskScheduledEvent(updated.id, updated.userId!, updated.title, updated.dueDate));
     }
 
     return updated;

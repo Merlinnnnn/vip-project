@@ -252,13 +252,13 @@ const TimeTrackingPage = () => {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       <PageTitle
         title="Time Tracking"
         subtitle="Pick a workspace background and switch to fullscreen to focus."
       />
 
-      <div className="rounded-2xl border border-slate-200 bg-white/60 p-4 shadow-sm backdrop-blur">
+      <div className="rounded-2xl border border-slate-200 bg-white/60 p-3 shadow-sm backdrop-blur">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
             <button
@@ -287,7 +287,7 @@ const TimeTrackingPage = () => {
 
         <div
           ref={workspaceRef}
-          className="relative mt-4 h-80 overflow-hidden rounded-2xl"
+          className="relative mt-2 h-60 overflow-hidden rounded-2xl"
         >
           {renderMedia("absolute inset-0 h-full w-full object-cover")}
           <div className="absolute inset-0 bg-slate-900/45" />
@@ -308,7 +308,7 @@ const TimeTrackingPage = () => {
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-12">
+      <div className="grid gap-3 lg:grid-cols-12">
         <div className="lg:col-span-4">
           <CalendarCard />
         </div>
