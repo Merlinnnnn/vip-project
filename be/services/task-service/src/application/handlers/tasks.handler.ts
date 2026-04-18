@@ -73,7 +73,7 @@ export class CreateTaskHandler implements IRequestHandler<CreateTaskCommand, Tas
     }
     
     // Publish scheduling event
-    void this.mediator.publish(new TaskScheduledEvent(created.id, created.userId!, created.title, created.dueDate));
+    void this.mediator.publish(new TaskScheduledEvent(created.id, created.userId!, created.title, created.dueDate.toISOString()));
 
     return created;
   }
@@ -130,8 +130,8 @@ export class UpdateTaskHandler implements IRequestHandler<UpdateTaskCommand, Tas
       }
     }
 
-    if (updated.dueDate !== previousDueDateString) {
-      void this.mediator.publish(new TaskScheduledEvent(updated.id, updated.userId!, updated.title, updated.dueDate));
+    if (updated.dueDate.getTime() !== new Date(previousDueDateString).getTime()) {
+      void this.mediator.publish(new TaskScheduledEvent(updated.id, updated.userId!, updated.title, updated.dueDate.toISOString()));
     }
 
     return updated;

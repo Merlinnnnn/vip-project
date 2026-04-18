@@ -1,5 +1,4 @@
 import { Queue, Worker, Job } from 'bullmq';
-import { IRedisConfig } from '../config/redis.config';
 import { Mediator } from '../../shared/mediator';
 import { TaskScheduledEvent } from '../../application/events/task-events';
 import { UUID } from '../../shared';
