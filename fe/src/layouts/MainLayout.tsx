@@ -3,13 +3,22 @@ import { useEffect, useState } from "react";
 import Header from "../components/layout/Header";
 import Sidebar from "../components/layout/Sidebar";
 import { useNotifications } from "../hooks/useNotifications";
+import { useThemeStore } from "../store/useThemeStore";
 
 type Props = {
   children: ReactNode;
 };
 
-  const MainLayout = ({ children }: Props) => {
+const MainLayout = ({ children }: Props) => {
   useNotifications();
+  const { theme } = useThemeStore();
+  
+  useEffect(() => {
+    const root = window.document.documentElement;
+    root.classList.remove('light', 'dark');
+    root.classList.add(theme);
+  }, [theme]);
+
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
     const stored = localStorage.getItem("sidebarCollapsed");
     return stored === "true";
@@ -23,7 +32,7 @@ type Props = {
   const mainOffset = isSidebarCollapsed ? "md:ml-16" : "md:ml-64";
 
   return (
-    <div className="flex min-h-screen bg-slate-50 text-slate-900">
+    <div className={`flex min-h-screen bg-slate-50 text-slate-900 transition-colors duration-300 dark:bg-slate-950 dark:text-slate-100`}>
       <Sidebar
         isCollapsed={isSidebarCollapsed}
         onToggle={() => setIsSidebarCollapsed((prev) => !prev)}

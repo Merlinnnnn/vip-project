@@ -1,0 +1,23 @@
+{
+  "common": {
+    "dashboard": "Bảng điều khiển",
+    "tasks": "Công việc",
+    "skills": "Kỹ năng",
+    "settings": "Cài đặt",
+    "logout": "Đăng xuất",
+    "notifications": "Thông báo",
+    "theme": {
+      "light": "Chế độ sáng",
+      "dark": "Chế độ tối"
+    },
+    "language": {
+      "en": "English",
+      "vi": "Tiếng Việt"
+    }
+  },
+  "dashboard": {
+    "welcome": "Chào mừng trở lại",
+    "overview": "Tổng quan tiến độ của bạn",
+    "stats": "Thống kê"
+  }
+}

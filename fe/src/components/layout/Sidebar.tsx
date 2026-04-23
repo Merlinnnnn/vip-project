@@ -7,18 +7,22 @@ type Props = {
   widthClass: string;
 };
 
-const links = [
-  { to: "/dashboard", label: "Dashboard", icon: Home },
-  { to: "/tasks", label: "Tasks", icon: ListChecks },
-  { to: "/skills", label: "Skills", icon: Target },
-  { to: "/time-tracking", label: "Time Tracking", icon: Timer },
-  { to: "/settings", label: "Settings", icon: Settings },
-];
+import { useTranslation } from "react-i18next";
 
 const Sidebar = ({ isCollapsed, onToggle, widthClass }: Props) => {
+  const { t } = useTranslation();
+
+  const links = [
+    { to: "/dashboard", label: t('common.dashboard'), icon: Home },
+    { to: "/tasks", label: t('common.tasks'), icon: ListChecks },
+    { to: "/skills", label: t('common.skills'), icon: Target },
+    { to: "/time-tracking", label: "Time Tracking", icon: Timer },
+    { to: "/settings", label: t('common.settings'), icon: Settings },
+  ];
+
   return (
     <aside
-      className={`hidden md:fixed md:inset-y-0 md:left-0 ${widthClass} flex-shrink-0 flex-col overflow-y-auto bg-slate-900 text-white transition-all duration-200 md:flex`}
+      className={`hidden md:fixed md:inset-y-0 md:left-0 ${widthClass} flex-shrink-0 flex-col overflow-y-auto bg-slate-900 border-r border-slate-800 text-white transition-all duration-200 md:flex dark:bg-slate-950`}
     >
       <div className="flex items-center justify-between px-3 py-4">
         {!isCollapsed && (

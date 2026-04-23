@@ -1,0 +1,23 @@
+{
+  "common": {
+    "dashboard": "Dashboard",
+    "tasks": "Tasks",
+    "skills": "Skills",
+    "settings": "Settings",
+    "logout": "Logout",
+    "notifications": "Notifications",
+    "theme": {
+      "light": "Light Mode",
+      "dark": "Dark Mode"
+    },
+    "language": {
+      "en": "English",
+      "vi": "Tiếng Việt"
+    }
+  },
+  "dashboard": {
+    "welcome": "Welcome back",
+    "overview": "Overview of your progress",
+    "stats": "Statistics"
+  }
+}
