@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Bar, Pie } from "react-chartjs-2";
 import {
   ArcElement,
@@ -13,20 +13,14 @@ import {
 import Card from "../../components/common/Card";
 import PageTitle from "../../components/common/PageTitle";
 import TaskList from "../../components/tasks/TaskList";
-import { listTasks } from "../../lib/tasksApi";
-import { listSkills, getStats } from "../../lib/skillsApi";
 import HeroProfile from "./components/HeroProfile";
-import { useAuth } from "../../routes/AuthContext";
-import { useTasksStore } from "../../store/useTasksStore";
-import { useSkillsStore } from "../../store/useSkillsStore";
-import type { Task, TaskStatus } from "../../types/task";
+import { useTasks } from "../../hooks/useTasks";
+import { useSkills, useSkillStats } from "../../hooks/useSkills";
+import type { TaskStatus } from "../../types/task";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend);
 
-const normalizeTasks = (list: Task[]) =>
-  [...list].sort(
-    (a, b) => (a.priority ?? Number.MAX_SAFE_INTEGER) - (b.priority ?? Number.MAX_SAFE_INTEGER),
-  );
+// ─── Helpers ────────────────────────────────────────────────────────────────
 
 const toDate = (input?: string) => {
   if (!input) return null;
@@ -41,73 +35,32 @@ const startOfDay = (date: Date) => {
 };
 
 const formatDayLabel = (date: Date) =>
-  new Intl.DateTimeFormat("vi-VN", { weekday: "short", day: "2-digit", month: "2-digit" }).format(date);
+  new Intl.DateTimeFormat("vi-VN", {
+    weekday: "short",
+    day: "2-digit",
+    month: "2-digit",
+  }).format(date);
+
+// ─── Component ──────────────────────────────────────────────────────────────
 
 const DashboardPage = () => {
-  const { user, token } = useAuth();
-  const { tasks, setTasks } = useTasksStore();
-  const { skills, setSkills, stats, setStats } = useSkillsStore();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { data: tasks = [], isLoading, error } = useTasks();
+  const { data: skills = [] } = useSkills();
+  const { data: stats } = useSkillStats();
 
-  const loadTasks = useMemo(
-    () => async () => {
-      if (!user) return;
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await listTasks({ userId: user.id, token });
-        setTasks(normalizeTasks(data));
-      } catch (err) {
-        setError((err as Error).message);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [setTasks, token, user],
+  // ── Derived data ────────────────────────────────────────────────────────
+
+  const statusStats = useMemo(
+    () =>
+      tasks.reduce(
+        (acc: Record<TaskStatus, number>, task) => {
+          acc[task.status] += 1;
+          return acc;
+        },
+        { todo: 0, in_progress: 0, done: 0, overdue: 0 },
+      ),
+    [tasks],
   );
-
-  const loadSkills = useMemo(
-    () => async () => {
-      if (!user) return;
-      try {
-        const data = await listSkills({ userId: user.id, token });
-        setSkills(data);
-      } catch (err) {
-        setError((err as Error).message);
-      }
-    },
-    [setSkills, token, user],
-  );
-
-  const loadStats = useMemo(
-    () => async () => {
-      if (!user) return;
-      try {
-        const data = await getStats({ userId: user.id, token });
-        setStats(data);
-      } catch (err) {
-        console.error("Failed to load RPG stats", err);
-      }
-    },
-    [setStats, token, user],
-  );
-
-  useEffect(() => {
-    void loadTasks();
-    void loadSkills();
-    void loadStats();
-  }, [loadSkills, loadTasks, loadStats]);
-
-  const statusStats = useMemo(() => {
-    return tasks.reduce(
-      (acc: Record<TaskStatus, number>, task) => {
-        acc[task.status] += 1;
-        return acc;
-      },
-      { todo: 0, in_progress: 0, done: 0, overdue: 0 },
-    );
-  }, [tasks]);
 
   const weeklyActivity = useMemo(() => {
     const today = startOfDay(new Date());
@@ -126,7 +79,9 @@ const DashboardPage = () => {
       if (createdKey) createdMap[createdKey] = (createdMap[createdKey] ?? 0) + 1;
 
       if (task.status === "done") {
-        const doneKey = toDate(task.updatedAt ?? task.createdAt)?.toISOString().slice(0, 10);
+        const doneKey = toDate(task.updatedAt ?? task.createdAt)
+          ?.toISOString()
+          .slice(0, 10);
         if (doneKey) doneMap[doneKey] = (doneMap[doneKey] ?? 0) + 1;
       }
     });
@@ -160,7 +115,9 @@ const DashboardPage = () => {
     const avgHours = doneDurations.length
       ? doneDurations.reduce((a, b) => a + b, 0) / doneDurations.length / 3600000
       : 0;
-    const fastestHours = doneDurations.length ? Math.min(...doneDurations) / 3600000 : 0;
+    const fastestHours = doneDurations.length
+      ? Math.min(...doneDurations) / 3600000
+      : 0;
 
     const openAges = tasks
       .filter((t) => t.status !== "done")
@@ -194,9 +151,14 @@ const DashboardPage = () => {
   }, [tasks]);
 
   const completionRate = useMemo(
-    () => (tasks.length ? Math.round((statusStats.done / tasks.length) * 100) : 0),
+    () =>
+      tasks.length
+        ? Math.round((statusStats.done / tasks.length) * 100)
+        : 0,
     [statusStats.done, tasks.length],
   );
+
+  // ── Chart data ──────────────────────────────────────────────────────────
 
   const statusPieData = useMemo(
     () => ({
@@ -273,6 +235,8 @@ const DashboardPage = () => {
     return points.join(" ");
   }, [weeklyActivity]);
 
+  // ── Render ──────────────────────────────────────────────────────────────
+
   return (
     <div className="space-y-6">
       <PageTitle
@@ -326,37 +290,47 @@ const DashboardPage = () => {
               <Pie data={statusPieData} options={pieOptions} />
             </div>
             <div className="flex-1 space-y-3">
-              {(["done", "in_progress", "todo", "overdue"] as TaskStatus[]).map((status) => {
-                const label = 
-                  status === "done" ? "Done" : 
-                  status === "in_progress" ? "In progress" : 
-                  status === "todo" ? "To do" : "Overdue";
-                const color =
-                  status === "done"
-                    ? "bg-emerald-500"
-                    : status === "in_progress"
-                      ? "bg-blue-500"
-                      : status === "todo"
-                        ? "bg-amber-500"
-                        : "bg-rose-500";
-                const count = statusStats[status];
-                const percent = tasks.length ? Math.round((count / tasks.length) * 100) : 0;
-                return (
-                  <div key={status} className="space-y-1">
-                    <div className="flex items-center justify-between text-sm font-semibold text-slate-800">
-                      <span>{label}</span>
-                      <span className="text-xs text-slate-500">{percent}%</span>
+              {(["done", "in_progress", "todo", "overdue"] as TaskStatus[]).map(
+                (status) => {
+                  const label =
+                    status === "done"
+                      ? "Done"
+                      : status === "in_progress"
+                        ? "In progress"
+                        : status === "todo"
+                          ? "To do"
+                          : "Overdue";
+                  const color =
+                    status === "done"
+                      ? "bg-emerald-500"
+                      : status === "in_progress"
+                        ? "bg-blue-500"
+                        : status === "todo"
+                          ? "bg-amber-500"
+                          : "bg-rose-500";
+                  const count = statusStats[status];
+                  const percent = tasks.length
+                    ? Math.round((count / tasks.length) * 100)
+                    : 0;
+                  return (
+                    <div key={status} className="space-y-1">
+                      <div className="flex items-center justify-between text-sm font-semibold text-slate-800">
+                        <span>{label}</span>
+                        <span className="text-xs text-slate-500">
+                          {percent}%
+                        </span>
+                      </div>
+                      <div className="h-2 rounded-full bg-slate-100">
+                        <div
+                          className={`h-2 rounded-full ${color}`}
+                          style={{ width: `${percent}%` }}
+                        />
+                      </div>
+                      <p className="text-xs text-slate-500">{count} task</p>
                     </div>
-                    <div className="h-2 rounded-full bg-slate-100">
-                      <div
-                        className={`h-2 rounded-full ${color}`}
-                        style={{ width: `${percent}%` }}
-                      />
-                    </div>
-                    <p className="text-xs text-slate-500">{count} task</p>
-                  </div>
-                );
-              })}
+                  );
+                },
+              )}
             </div>
           </div>
         </Card>
@@ -369,7 +343,10 @@ const DashboardPage = () => {
                 <span>Xu huong hoan thanh</span>
                 <span className="text-emerald-600">7d</span>
               </div>
-              <svg viewBox="0 0 140 50" className="mt-2 h-16 w-full text-emerald-500">
+              <svg
+                viewBox="0 0 140 50"
+                className="mt-2 h-16 w-full text-emerald-500"
+              >
                 <polyline
                   fill="none"
                   stroke="currentColor"
@@ -388,30 +365,41 @@ const DashboardPage = () => {
             <div className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
               <span className="text-slate-500">Hoan thanh TB</span>
               <span className="font-semibold text-slate-900">
-                {timeStats.avgHours ? `${timeStats.avgHours.toFixed(1)} gio` : "Chua du lieu"}
+                {timeStats.avgHours
+                  ? `${timeStats.avgHours.toFixed(1)} gio`
+                  : "Chua du lieu"}
               </span>
             </div>
             <div className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
               <span className="text-slate-500">Nhanh nhat</span>
               <span className="font-semibold text-emerald-700">
-                {timeStats.fastestHours ? `${timeStats.fastestHours.toFixed(1)} gio` : "Chua du lieu"}
+                {timeStats.fastestHours
+                  ? `${timeStats.fastestHours.toFixed(1)} gio`
+                  : "Chua du lieu"}
               </span>
             </div>
             <div className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
-              <span className="text-slate-500">Tuoi trung binh task dang mo</span>
+              <span className="text-slate-500">
+                Tuoi trung binh task dang mo
+              </span>
               <span className="font-semibold text-blue-700">
-                {timeStats.avgOpenDays ? `${timeStats.avgOpenDays.toFixed(1)} ngay` : "Chua du lieu"}
+                {timeStats.avgOpenDays
+                  ? `${timeStats.avgOpenDays.toFixed(1)} ngay`
+                  : "Chua du lieu"}
               </span>
             </div>
             <p className="text-xs text-slate-500">
-              Dua tren thoi gian created/updated tu API. Nen cap nhat task de co so lieu chinh xac.
+              Dua tren thoi gian created/updated tu API. Nen cap nhat task de co
+              so lieu chinh xac.
             </p>
           </div>
         </Card>
       </div>
 
-      {error ? <p className="text-sm text-rose-600">{error}</p> : null}
-      {loading ? <p className="text-sm text-slate-600">Dang tai tasks...</p> : null}
+      {error ? <p className="text-sm text-rose-600">{error.message}</p> : null}
+      {isLoading ? (
+        <p className="text-sm text-slate-600">Dang tai tasks...</p>
+      ) : null}
 
       <TaskList tasks={tasks} skillNames={skillNames} />
     </div>

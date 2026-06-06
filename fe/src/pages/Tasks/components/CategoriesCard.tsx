@@ -1,14 +1,19 @@
 import { MoreHorizontal, PlusCircle } from "lucide-react";
-import { useSkillsStore } from "../../../store/useSkillsStore";
+import { useSkills } from "../../../hooks/useSkills";
 
 const CategoriesCard = () => {
-  const { skills } = useSkillsStore();
-  const formatHours = (minutes: number) => (minutes / 60).toFixed(1).replace(/\\.0$/, "");
+  const { data: skills = [] } = useSkills();
+
+  const formatHours = (minutes: number) =>
+    (minutes / 60).toFixed(1).replace(/\.0$/, "");
+
   const computePercent = (total: number, target: number) => {
     if (!target || target <= 0) return 0;
     return Math.min(100, Math.round((total / target) * 100));
   };
+
   const list = skills.slice(0, 5);
+
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="mb-3 flex items-center justify-between text-sm font-semibold text-slate-800">
@@ -21,7 +26,10 @@ const CategoriesCard = () => {
           const target = s.targetMinutes ?? 0;
           const percent = computePercent(done, target);
           return (
-            <div key={s.id} className="space-y-1 rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <div
+              key={s.id}
+              className="space-y-1 rounded-lg border border-slate-200 bg-slate-50 p-3"
+            >
               <div className="flex items-center justify-between gap-2">
                 <div>
                   <div className="font-semibold text-slate-900">{s.name}</div>
@@ -29,7 +37,9 @@ const CategoriesCard = () => {
                     {formatHours(done)}h / {formatHours(target)}h
                   </div>
                 </div>
-                <div className="text-xs font-semibold text-slate-600">{percent}%</div>
+                <div className="text-xs font-semibold text-slate-600">
+                  {percent}%
+                </div>
               </div>
               <div className="h-2 overflow-hidden rounded-full bg-slate-100">
                 <div

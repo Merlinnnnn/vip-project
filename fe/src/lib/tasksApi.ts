@@ -1,7 +1,9 @@
 import { BaseApi } from "./baseApi";
 import type { Task, TaskStatus } from "../types/task";
+import type { AuthHeaders } from "../types/api";
+import { buildAuthHeaders } from "../types/api";
 
-type TaskInput = {
+export type TaskInput = {
   title?: string;
   description?: string | null;
   status?: TaskStatus;
@@ -11,34 +13,16 @@ type TaskInput = {
   skillId?: string | null;
 };
 
-type AuthHeaders = {
-  userId: string;
-  token?: string | null;
-};
-
-const taskApi = new BaseApi("tasks");
-
-const withAuthHeaders = (auth: AuthHeaders, extra?: Record<string, string>) => ({
-  ...(extra ?? {}),
-  "x-user-id": auth.userId,
-});
+const api = new BaseApi("tasks");
 
 export const listTasks = (auth: AuthHeaders): Promise<Task[]> =>
-  taskApi.get<Task[]>("", {
-    headers: withAuthHeaders(auth, auth.token ? { Authorization: `Bearer ${auth.token}` } : undefined),
-  });
+  api.get<Task[]>("", { headers: buildAuthHeaders(auth) });
 
 export const createTask = (auth: AuthHeaders, input: TaskInput): Promise<Task> =>
-  taskApi.post<Task>("", input, {
-    headers: withAuthHeaders(auth, auth.token ? { Authorization: `Bearer ${auth.token}` } : undefined),
-  });
+  api.post<Task>("", input, { headers: buildAuthHeaders(auth) });
 
 export const updateTask = (auth: AuthHeaders, id: string, input: TaskInput): Promise<Task> =>
-  taskApi.put<Task>(id, input, {
-    headers: withAuthHeaders(auth, auth.token ? { Authorization: `Bearer ${auth.token}` } : undefined),
-  });
+  api.put<Task>(id, input, { headers: buildAuthHeaders(auth) });
 
 export const deleteTask = (auth: AuthHeaders, id: string): Promise<void> =>
-  taskApi.delete<void>(id, {
-    headers: withAuthHeaders(auth, auth.token ? { Authorization: `Bearer ${auth.token}` } : undefined),
-  });
+  api.delete<void>(id, { headers: buildAuthHeaders(auth) });

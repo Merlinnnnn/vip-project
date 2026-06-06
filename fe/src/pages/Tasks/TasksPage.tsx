@@ -1,67 +1,38 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Plus } from "lucide-react";
-import { listTasks } from "../../lib/tasksApi";
-import { listSkills } from "../../lib/skillsApi";
-import { useAuth } from "../../routes/AuthContext";
-import { useTasksStore } from "../../store/useTasksStore";
-import { useSkillsStore } from "../../store/useSkillsStore";
+import { useTasks } from "../../hooks/useTasks";
+import { useSkills } from "../../hooks/useSkills";
 import { useTaskUiStore } from "../../store/useTaskUiStore";
 import TasksHeader from "./components/TasksHeader";
 import CalendarCard from "./components/CalendarCard";
 import CategoriesCard from "./components/CategoriesCard";
 import TaskListCard from "./components/TaskListCard";
 import TaskModal from "./components/TaskModal";
-import { normalizeTasks } from "./utils/normalize";
 
 const TasksPage = () => {
-  const { user, token } = useAuth();
-  const { tasks, setTasks } = useTasksStore();
-  const { setSkills } = useSkillsStore();
+  const { data: tasks = [], isLoading, error } = useTasks();
+  useSkills(); // prefetch for modal + categories
   const { selectedDate } = useTaskUiStore();
 
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const dueKey = (taskDate?: string) =>
+    taskDate ? new Date(taskDate).toISOString().slice(0, 10) : "";
 
-  useEffect(() => {
-    if (!user) return;
-    const fetch = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await listTasks({ userId: user.id, token });
-        setTasks(normalizeTasks(data));
-      } catch (err) {
-        setError((err as Error).message);
-      } finally {
-        setLoading(false);
-      }
-    };
-    void fetch();
-  }, [setTasks, token, user]);
-
-  useEffect(() => {
-    if (!user) return;
-    const fetch = async () => {
-      try {
-        const data = await listSkills({ userId: user.id, token });
-        setSkills(data);
-      } catch (err) {
-        setError((err as Error).message);
-      }
-    };
-    void fetch();
-  }, [setSkills, token, user]);
-
-  const dueKey = (taskDate?: string) => (taskDate ? new Date(taskDate).toISOString().slice(0, 10) : "");
   const tasksForSelectedDay = useMemo(
     () =>
       tasks
         .filter((t) => !t.dueDate || dueKey(t.dueDate) === selectedDate)
-        .sort((a, b) => (a.priority ?? Number.MAX_SAFE_INTEGER) - (b.priority ?? Number.MAX_SAFE_INTEGER)),
+        .sort(
+          (a, b) =>
+            (a.priority ?? Number.MAX_SAFE_INTEGER) -
+            (b.priority ?? Number.MAX_SAFE_INTEGER),
+        ),
     [tasks, selectedDate],
   );
 
-  const topTasks = useMemo(() => tasksForSelectedDay.slice(0, 5), [tasksForSelectedDay]);
+  const topTasks = useMemo(
+    () => tasksForSelectedDay.slice(0, 5),
+    [tasksForSelectedDay],
+  );
 
   return (
     <div className="-mx-4 px-4 pb-10">
@@ -69,7 +40,9 @@ const TasksPage = () => {
         <TasksHeader />
 
         {error ? (
-          <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</div>
+          <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            {error.message}
+          </div>
         ) : null}
 
         <div className="grid gap-4 lg:grid-cols-12">
@@ -92,7 +65,9 @@ const TasksPage = () => {
       </div>
 
       <TaskModal />
-      {loading ? <div className="mt-4 text-sm text-slate-500">Loading tasks...</div> : null}
+      {isLoading ? (
+        <div className="mt-4 text-sm text-slate-500">Loading tasks...</div>
+      ) : null}
     </div>
   );
 };

@@ -1,44 +1,26 @@
 import { BaseApi } from "./baseApi";
-import type { Skill } from "../types/skill";
+import type { Skill, SkillStats } from "../types/skill";
+import type { AuthHeaders } from "../types/api";
+import { buildAuthHeaders } from "../types/api";
 
-type AuthHeaders = {
-  userId: string;
-  token?: string | null;
-};
-
-type SkillInput = {
+export type SkillInput = {
   name: string;
   targetMinutes?: number;
 };
 
-const skillApi = new BaseApi("skills");
-
-const withAuthHeaders = (auth: AuthHeaders, extra?: Record<string, string>) => ({
-  ...(extra ?? {}),
-  "x-user-id": auth.userId,
-});
+const api = new BaseApi("skills");
 
 export const listSkills = (auth: AuthHeaders): Promise<Skill[]> =>
-  skillApi.get<Skill[]>("", {
-    headers: withAuthHeaders(auth, auth.token ? { Authorization: `Bearer ${auth.token}` } : undefined),
-  });
+  api.get<Skill[]>("", { headers: buildAuthHeaders(auth) });
 
 export const createSkill = (auth: AuthHeaders, input: SkillInput): Promise<Skill> =>
-  skillApi.post<Skill>("", input, {
-    headers: withAuthHeaders(auth, auth.token ? { Authorization: `Bearer ${auth.token}` } : undefined),
-  });
+  api.post<Skill>("", input, { headers: buildAuthHeaders(auth) });
 
 export const updateSkill = (auth: AuthHeaders, id: string, input: Partial<SkillInput>): Promise<Skill> =>
-  skillApi.put<Skill>(id, input, {
-    headers: withAuthHeaders(auth, auth.token ? { Authorization: `Bearer ${auth.token}` } : undefined),
-  });
+  api.put<Skill>(id, input, { headers: buildAuthHeaders(auth) });
 
 export const deleteSkill = (auth: AuthHeaders, id: string): Promise<void> =>
-  skillApi.delete<void>(id, {
-    headers: withAuthHeaders(auth, auth.token ? { Authorization: `Bearer ${auth.token}` } : undefined),
-  });
+  api.delete<void>(id, { headers: buildAuthHeaders(auth) });
 
-export const getStats = (auth: AuthHeaders): Promise<any> =>
-  skillApi.get<any>("stats", {
-    headers: withAuthHeaders(auth, auth.token ? { Authorization: `Bearer ${auth.token}` } : undefined),
-  });
+export const getStats = (auth: AuthHeaders): Promise<SkillStats> =>
+  api.get<SkillStats>("stats", { headers: buildAuthHeaders(auth) });

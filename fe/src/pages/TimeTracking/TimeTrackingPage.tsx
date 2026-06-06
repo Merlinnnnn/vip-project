@@ -4,12 +4,9 @@ import PageTitle from "../../components/common/PageTitle";
 import TimerWidget from "../../components/time-tracking/TimerWidget";
 import CalendarCard from "../Tasks/components/CalendarCard";
 import { statusMeta } from "../Tasks/meta";
-import { normalizeTasks } from "../Tasks/utils/normalize";
-import { useTasksStore } from "../../store/useTasksStore";
+import { useTasks } from "../../hooks/useTasks";
 import { useTimerStore } from "../../store/useTimerStore";
 import { useTaskUiStore } from "../../store/useTaskUiStore";
-import { listTasks } from "../../lib/tasksApi";
-import { useAuth } from "../../routes/AuthContext";
 import type { Task } from "../../types/task";
 
 type BackgroundMedia = {
@@ -31,11 +28,8 @@ const TimeTrackingPage = () => {
   const workspaceRef = useRef<HTMLDivElement | null>(null);
   const [background, setBackground] = useState<BackgroundMedia | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [loadingTasks, setLoadingTasks] = useState(false);
-  const [tasksError, setTasksError] = useState<string | null>(null);
 
-  const { user, token } = useAuth();
-  const { tasks, setTasks } = useTasksStore();
+  const { data: tasks = [], isLoading: loadingTasks, error: tasksError } = useTasks();
   const { selectedDate } = useTaskUiStore();
   const {
     activeTaskId,
@@ -57,15 +51,24 @@ const TimeTrackingPage = () => {
     [background],
   );
 
-  const dueKey = (date?: string) => (date ? new Date(date).toISOString().slice(0, 10) : "");
+  const dueKey = (date?: string) =>
+    date ? new Date(date).toISOString().slice(0, 10) : "";
+
   const tasksForSelectedDay = useMemo(
-    () => tasks.filter((task) => !task.dueDate || dueKey(task.dueDate) === selectedDate),
+    () =>
+      tasks.filter(
+        (task) => !task.dueDate || dueKey(task.dueDate) === selectedDate,
+      ),
     [selectedDate, tasks],
   );
 
-  const orderedTasks = useMemo(() => {
-    return [...tasksForSelectedDay].sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0));
-  }, [tasksForSelectedDay]);
+  const orderedTasks = useMemo(
+    () =>
+      [...tasksForSelectedDay].sort(
+        (a, b) => (a.priority ?? 0) - (b.priority ?? 0),
+      ),
+    [tasksForSelectedDay],
+  );
 
   const incompleteTasks = useMemo(
     () => orderedTasks.filter((task) => task.status !== "done"),
@@ -79,9 +82,13 @@ const TimeTrackingPage = () => {
 
   const displaySeconds =
     mode === "countdown"
-      ? (remaining > 0 ? remaining : requiredSeconds)
+      ? remaining > 0
+        ? remaining
+        : requiredSeconds
       : elapsed;
   const timeDisplay = formatTime(displaySeconds || 0);
+
+  // ── Keyboard & fullscreen side-effects ──────────────────────────────────
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -99,12 +106,11 @@ const TimeTrackingPage = () => {
   useEffect(() => {
     const handleFullscreenChange = () => {
       const active = Boolean(document.fullscreenElement);
-      if (!active) {
-        setIsFullscreen(false);
-      }
+      if (!active) setIsFullscreen(false);
     };
     document.addEventListener("fullscreenchange", handleFullscreenChange);
-    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    return () =>
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
   }, []);
 
   useEffect(() => {
@@ -118,35 +124,11 @@ const TimeTrackingPage = () => {
 
   useEffect(() => {
     return () => {
-      if (background?.url) {
-        URL.revokeObjectURL(background.url);
-      }
+      if (background?.url) URL.revokeObjectURL(background.url);
     };
   }, [background]);
 
-  useEffect(() => {
-    if (!user?.id) return;
-    let active = true;
-    const loadTasks = async () => {
-      setLoadingTasks(true);
-      setTasksError(null);
-      try {
-        const data = await listTasks({ userId: user.id, token });
-        if (active) setTasks(normalizeTasks(data));
-      } catch (error) {
-        if (!active) return;
-        const message = error instanceof Error ? error.message : "Failed to load tasks";
-        setTasksError(message);
-      } finally {
-        if (active) setLoadingTasks(false);
-      }
-    };
-    void loadTasks();
-    return () => {
-      active = false;
-    };
-  }, [setTasks, token, user]);
-
+  // Auto-select first incomplete task
   useEffect(() => {
     if (activeTaskId || !incompleteTasks.length) return;
     const first = incompleteTasks[0];
@@ -157,6 +139,8 @@ const TimeTrackingPage = () => {
     });
   }, [activeTaskId, incompleteTasks, selectTask]);
 
+  // ── Handlers ────────────────────────────────────────────────────────────
+
   const triggerPicker = () => inputRef.current?.click();
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -164,9 +148,7 @@ const TimeTrackingPage = () => {
     if (!file) return;
 
     setBackground((prev) => {
-      if (prev?.url) {
-        URL.revokeObjectURL(prev.url);
-      }
+      if (prev?.url) URL.revokeObjectURL(prev.url);
       const nextUrl = URL.createObjectURL(file);
       const kind = file.type.startsWith("video") ? "video" : "image";
       return { url: nextUrl, kind, name: file.name };
@@ -187,18 +169,14 @@ const TimeTrackingPage = () => {
     if (!incompleteTasks.length) return;
     const idx = incompleteTasks.findIndex((task) => task.id === activeTaskId);
     const target = idx >= 0 ? incompleteTasks[idx + 1] : incompleteTasks[0];
-    if (target) {
-      handleSelectTask(target);
-    }
+    if (target) handleSelectTask(target);
   };
 
   const handlePrevTask = () => {
     if (!incompleteTasks.length) return;
     const idx = incompleteTasks.findIndex((task) => task.id === activeTaskId);
     const target = idx > 0 ? incompleteTasks[idx - 1] : null;
-    if (target) {
-      handleSelectTask(target);
-    }
+    if (target) handleSelectTask(target);
   };
 
   const handleToggleRun = () => {
@@ -234,7 +212,14 @@ const TimeTrackingPage = () => {
 
   const renderMedia = (className: string) => {
     if (!background) {
-      return <div className={className + " bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900"} />;
+      return (
+        <div
+          className={
+            className +
+            " bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900"
+          }
+        />
+      );
     }
     if (background.kind === "video") {
       return (
@@ -248,8 +233,12 @@ const TimeTrackingPage = () => {
         />
       );
     }
-    return <img className={className} src={background.url} alt={background.name} />;
+    return (
+      <img className={className} src={background.url} alt={background.name} />
+    );
   };
+
+  // ── Render ──────────────────────────────────────────────────────────────
 
   return (
     <div className="space-y-2">
@@ -282,7 +271,9 @@ const TimeTrackingPage = () => {
               onChange={handleFileChange}
             />
           </div>
-          <span className="text-xs font-medium text-slate-500">{backgroundInfo}</span>
+          <span className="text-xs font-medium text-slate-500">
+            {backgroundInfo}
+          </span>
         </div>
 
         <div
@@ -316,7 +307,7 @@ const TimeTrackingPage = () => {
           <Card title="Tasks">
             {tasksError ? (
               <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
-                {tasksError}
+                {tasksError.message}
               </div>
             ) : null}
             <div className="overflow-hidden rounded-lg border border-slate-100/70 bg-white/40 backdrop-blur">
@@ -332,8 +323,13 @@ const TimeTrackingPage = () => {
                 <tbody className="divide-y divide-slate-100 bg-white/60 backdrop-blur">
                   {orderedTasks.length === 0 ? (
                     <tr>
-                      <td className="px-4 py-4 text-sm text-slate-500" colSpan={4}>
-                        {loadingTasks ? "Loading tasks..." : "No tasks found."}
+                      <td
+                        className="px-4 py-4 text-sm text-slate-500"
+                        colSpan={4}
+                      >
+                        {loadingTasks
+                          ? "Loading tasks..."
+                          : "No tasks found."}
                       </td>
                     </tr>
                   ) : (
@@ -353,7 +349,9 @@ const TimeTrackingPage = () => {
                             {task.title}
                           </td>
                           <td className="px-4 py-3 text-slate-600">
-                            {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "-"}
+                            {task.dueDate
+                              ? new Date(task.dueDate).toLocaleDateString()
+                              : "-"}
                           </td>
                           <td className="px-4 py-3 text-slate-600">
                             <span
