@@ -1,5 +1,8 @@
 import { NavLink } from "react-router-dom";
 import { Home, ListChecks, Target, Timer, Settings } from "lucide-react";
+import { useTranslation } from "react-i18next";
+
+// Import đã được chuyển lên đầu file — trước đây nằm ở giữa (sau type Props)
 
 type Props = {
   isCollapsed: boolean;
@@ -7,17 +10,15 @@ type Props = {
   widthClass: string;
 };
 
-import { useTranslation } from "react-i18next";
-
 const Sidebar = ({ isCollapsed, onToggle, widthClass }: Props) => {
   const { t } = useTranslation();
 
   const links = [
-    { to: "/dashboard", label: t('common.dashboard'), icon: Home },
-    { to: "/tasks", label: t('common.tasks'), icon: ListChecks },
-    { to: "/skills", label: t('common.skills'), icon: Target },
+    { to: "/dashboard", label: t("common.dashboard"), icon: Home },
+    { to: "/tasks", label: t("common.tasks"), icon: ListChecks },
+    { to: "/skills", label: t("common.skills"), icon: Target },
     { to: "/time-tracking", label: "Time Tracking", icon: Timer },
-    { to: "/settings", label: t('common.settings'), icon: Settings },
+    { to: "/settings", label: t("common.settings"), icon: Settings },
   ];
 
   return (

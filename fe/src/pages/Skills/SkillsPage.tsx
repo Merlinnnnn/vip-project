@@ -20,6 +20,7 @@ const SkillsPage = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState(defaultForm);
   const [error, setError] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const isMutating =
     createSkill.isPending ||
@@ -87,11 +88,12 @@ const SkillsPage = () => {
   };
 
   const handleDelete = (skillId: string) => {
-    const skill = skills.find((s) => s.id === skillId);
-    const confirmed = window.confirm(
-      `Xóa skill "${skill?.name ?? ""}"? Các task đang gắn skill này sẽ bị bỏ liên kết.`,
-    );
-    if (!confirmed) return;
+    // Hiện inline confirm thay vì window.confirm
+    setConfirmDeleteId(skillId);
+  };
+
+  const confirmDelete = (skillId: string) => {
+    setConfirmDeleteId(null);
     setError(null);
 
     deleteSkillMutation.mutate(skillId, {
@@ -220,6 +222,36 @@ const SkillsPage = () => {
                   </button>
                 </div>
               </div>
+            ) : confirmDeleteId === skill.id ? (
+              // Inline confirm — thay thế window.confirm
+              <div
+                key={skill.id}
+                className="rounded-2xl border border-rose-200 bg-rose-50 p-4 shadow-sm space-y-3"
+              >
+                <p className="text-sm font-semibold text-rose-700">
+                  Xóa skill "{skill.name}"?
+                </p>
+                <p className="text-xs text-rose-600">
+                  Các task đang gắn skill này sẽ bị bỏ liên kết.
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => confirmDelete(skill.id)}
+                    disabled={isMutating}
+                    className="flex-1 rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-70"
+                  >
+                    {deleteSkillMutation.isPending ? "Đang xóa..." : "Xác nhận xóa"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDeleteId(null)}
+                    className="flex-1 rounded-lg bg-white px-3 py-2 text-xs font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
+                  >
+                    Hủy
+                  </button>
+                </div>
+              </div>
             ) : (
               <div key={skill.id} className="space-y-2">
                 <SkillCard skill={skill} />
@@ -241,6 +273,7 @@ const SkillsPage = () => {
                 </div>
               </div>
             ),
+
           )}
           {skills.length === 0 ? (
             <p className="text-sm text-slate-500">

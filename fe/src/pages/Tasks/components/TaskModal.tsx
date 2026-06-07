@@ -1,9 +1,10 @@
 import { Bell, CalendarDays, Clock3, Loader2, Tag, X } from "lucide-react";
 import { useMemo, useState } from "react";
-import { useAuth } from "../../../routes/AuthContext";
+import { useAuth } from "../../../context/AuthContext";
 import { useTasks, useCreateTask } from "../../../hooks/useTasks";
 import { useSkills } from "../../../hooks/useSkills";
 import { useTaskUiStore } from "../../../store/useTaskUiStore";
+import { parseDateKey } from "../../../lib/dateUtils";
 import { ensureDuration } from "../utils/time";
 import { addDays, fmtKey } from "../utils/date";
 import { buildWeek } from "../utils/week";
@@ -37,9 +38,6 @@ const TaskModal = ({ onCreated }: Props) => {
 
   const plannedDateKey = resolveDueDate();
 
-  const dueKey = (date?: string) =>
-    date ? new Date(date).toISOString().slice(0, 10) : "";
-
   if (!modalOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -49,7 +47,7 @@ const TaskModal = ({ onCreated }: Props) => {
     const duration = ensureDuration(form.learningMinutes);
     const dueDate = resolveDueDate();
     const sameDayTasks = tasks.filter(
-      (t) => (t.dueDate ? dueKey(t.dueDate) : null) === dueDate,
+      (t) => (t.dueDate ? parseDateKey(t.dueDate) : null) === dueDate,
     );
     const nextPriority = sameDayTasks.length + 1;
 

@@ -3,11 +3,6 @@ export type AuthHeaders = {
   token?: string | null;
 };
 
-export const buildAuthHeaders = (
-  auth: AuthHeaders,
-  extra?: Record<string, string>,
-): Record<string, string> => ({
-  ...(extra ?? {}),
-  "x-user-id": auth.userId,
-  ...(auth.token ? { Authorization: `Bearer ${auth.token}` } : {}),
-});
+// buildAuthHeaders has been moved to src/lib/apiUtils.ts
+// Re-exported here for backward compatibility
+export { buildAuthHeaders } from "../lib/apiUtils";

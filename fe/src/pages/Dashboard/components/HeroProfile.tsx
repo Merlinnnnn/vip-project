@@ -59,7 +59,7 @@ const HeroProfile: React.FC<HeroProfileProps> = ({ stats }) => {
         </div>
 
         <div className="mt-6 flex flex-wrap gap-2">
-          {stats.topSkills.map((skill: any, idx: number) => (
+          {stats.topSkills.map((skill, idx) => (
             <div key={idx} className="bg-black/20 text-xs px-3 py-1.5 rounded-full flex items-center gap-2 border border-white/5">
               <span className="font-bold text-yellow-400">LVL {skill.level}</span>
               <span className="text-white/90">{skill.name}</span>

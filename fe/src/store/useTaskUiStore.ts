@@ -10,7 +10,7 @@ export type TaskUiForm = {
   learningMinutes: number;
   dayOption: DayOption;
   notifyOption: NotifyOption;
-  tags: string;
+  // `tags` field đã bị xóa — không có UI nào bind vào và không được gửi lên BE
 };
 
 type TaskUiState = {
@@ -37,7 +37,6 @@ const defaultForm: TaskUiForm = {
   learningMinutes: 60,
   dayOption: "today",
   notifyOption: "1h",
-  tags: "",
 };
 
 export const useTaskUiStore = create<TaskUiState>((set) => ({

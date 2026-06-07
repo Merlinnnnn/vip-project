@@ -2,8 +2,9 @@ import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import Card from "../../components/common/Card";
 import PageTitle from "../../components/common/PageTitle";
 import TimerWidget from "../../components/time-tracking/TimerWidget";
-import CalendarCard from "../Tasks/components/CalendarCard";
-import { statusMeta } from "../Tasks/meta";
+import CalendarCard from "../../components/shared/CalendarCard";
+import { statusMeta } from "../../components/shared/taskMeta";
+import { parseDateKey } from "../../lib/dateUtils";
 import { useTasks } from "../../hooks/useTasks";
 import { useTimerStore } from "../../store/useTimerStore";
 import { useTaskUiStore } from "../../store/useTaskUiStore";
@@ -51,13 +52,10 @@ const TimeTrackingPage = () => {
     [background],
   );
 
-  const dueKey = (date?: string) =>
-    date ? new Date(date).toISOString().slice(0, 10) : "";
-
   const tasksForSelectedDay = useMemo(
     () =>
       tasks.filter(
-        (task) => !task.dueDate || dueKey(task.dueDate) === selectedDate,
+        (task) => !task.dueDate || parseDateKey(task.dueDate) === selectedDate,
       ),
     [selectedDate, tasks],
   );

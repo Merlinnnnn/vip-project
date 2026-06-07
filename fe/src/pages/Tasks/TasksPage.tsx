@@ -3,8 +3,9 @@ import { Plus } from "lucide-react";
 import { useTasks } from "../../hooks/useTasks";
 import { useSkills } from "../../hooks/useSkills";
 import { useTaskUiStore } from "../../store/useTaskUiStore";
+import { parseDateKey } from "../../lib/dateUtils";
 import TasksHeader from "./components/TasksHeader";
-import CalendarCard from "./components/CalendarCard";
+import CalendarCard from "../../components/shared/CalendarCard";
 import CategoriesCard from "./components/CategoriesCard";
 import TaskListCard from "./components/TaskListCard";
 import TaskModal from "./components/TaskModal";
@@ -14,13 +15,10 @@ const TasksPage = () => {
   useSkills(); // prefetch for modal + categories
   const { selectedDate } = useTaskUiStore();
 
-  const dueKey = (taskDate?: string) =>
-    taskDate ? new Date(taskDate).toISOString().slice(0, 10) : "";
-
   const tasksForSelectedDay = useMemo(
     () =>
       tasks
-        .filter((t) => !t.dueDate || dueKey(t.dueDate) === selectedDate)
+        .filter((t) => !t.dueDate || parseDateKey(t.dueDate) === selectedDate)
         .sort(
           (a, b) =>
             (a.priority ?? Number.MAX_SAFE_INTEGER) -
@@ -39,8 +37,13 @@ const TasksPage = () => {
       <div className="rounded-3xl border border-slate-200 bg-white px-4 pb-8 shadow-xl">
         <TasksHeader />
 
+        {/* Loading indicator — đặt trên cùng, trước content */}
+        {isLoading ? (
+          <div className="mb-4 text-sm text-slate-500">Đang tải tasks...</div>
+        ) : null}
+
         {error ? (
-          <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
             {error.message}
           </div>
         ) : null}
@@ -65,9 +68,6 @@ const TasksPage = () => {
       </div>
 
       <TaskModal />
-      {isLoading ? (
-        <div className="mt-4 text-sm text-slate-500">Loading tasks...</div>
-      ) : null}
     </div>
   );
 };

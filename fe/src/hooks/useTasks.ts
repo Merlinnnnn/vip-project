@@ -35,10 +35,17 @@ export const useCreateTask = () => {
       createTask({ userId: user!.id, token }, input),
 
     onSuccess: (created) => {
+      // Optimistic: thêm vào cache ngay lập tức để UI cập nhật nhanh
       queryClient.setQueryData<Task[]>(queryKeys.tasks.all, (old = []) => [
         ...old,
         created,
       ]);
+    },
+
+    onSettled: () => {
+      // Luôn revalidate sau khi tạo xong để đảm bảo cache đồng bộ với server
+      // (server có thể gán thêm field như createdAt, updatedAt, etc.)
+      void queryClient.invalidateQueries({ queryKey: queryKeys.tasks.all });
     },
   });
 };

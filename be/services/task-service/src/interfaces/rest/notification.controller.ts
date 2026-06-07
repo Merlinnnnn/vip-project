@@ -4,7 +4,7 @@ import { TaskScheduledEvent } from '../../application/events/task-events';
 
 export class NotificationController {
   public readonly router = Router();
-  private clients: Response[] = [];
+  private clients: { userId?: string; res: Response }[] = [];
 
   constructor(private readonly mediator: Mediator) {
     this.router.get('/stream', this.stream.bind(this));
@@ -19,23 +19,31 @@ export class NotificationController {
   }
 
   private stream(req: Request, res: Response) {
+    const userId = req.query.userId as string;
+
     // Basic SSE headers
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     res.flushHeaders();
 
-    this.clients.push(res);
+    this.clients.push({ userId, res });
     console.log('[NOTIFICATION] Client connected. Total clients:', this.clients.length);
 
     req.on('close', () => {
-      this.clients = this.clients.filter(c => c !== res);
+      this.clients = this.clients.filter(c => c.res !== res);
       console.log('[NOTIFICATION] Client disconnected. Total clients:', this.clients.length);
     });
   }
 
   private broadcast(message: any) {
+    const eventUserId = message.data?.userId;
     const data = `data: ${JSON.stringify(message)}\n\n`;
-    this.clients.forEach(client => client.write(data));
+
+    this.clients.forEach(client => {
+      if (!eventUserId || client.userId === eventUserId) {
+        client.res.write(data);
+      }
+    });
   }
 }

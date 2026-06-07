@@ -47,7 +47,7 @@ const TaskList = ({ tasks, onDelete, skillNames }: Props) => {
                     ? "Done"
                     : "To do"}
               </span>
-              <span className="text-[11px] text-slate-500">Trang thai cap nhat qua dong ho task.</span>
+              <span className="text-[11px] text-slate-500">Trạng thái cập nhật qua đồng hồ task.</span>
               {onDelete ? (
                 <button
                   type="button"

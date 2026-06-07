@@ -314,3 +314,28 @@ export const useTimerStore = create<TimerState>((set, get) => ({
     }
   },
 }));
+
+// Automatic ticking interval driver
+if (typeof window !== "undefined") {
+  const globalObj = window as unknown as { __timerInterval__?: ReturnType<typeof setInterval> | null };
+  if (globalObj.__timerInterval__) {
+    clearInterval(globalObj.__timerInterval__);
+    globalObj.__timerInterval__ = null;
+  }
+
+  useTimerStore.subscribe((state) => {
+    if (state.shouldTick) {
+      if (!globalObj.__timerInterval__) {
+        globalObj.__timerInterval__ = setInterval(() => {
+          useTimerStore.getState().tick();
+        }, 1000);
+      }
+    } else {
+      if (globalObj.__timerInterval__) {
+        clearInterval(globalObj.__timerInterval__);
+        globalObj.__timerInterval__ = null;
+      }
+    }
+  });
+}
+

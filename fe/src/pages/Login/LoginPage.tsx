@@ -24,7 +24,7 @@ const LoginPage = () => {
     setError("");
     const ok = await login(email, password, rememberMe);
     if (!ok) {
-      setError("Dang nhap that bai. Kiem tra email/mat khau hoac server BE.");
+      setError("Đăng nhập thất bại. Kiểm tra email/mật khẩu hoặc server BE.");
       return;
     }
     navigate(from || "/dashboard", { replace: true });
@@ -36,7 +36,7 @@ const LoginPage = () => {
         <div className="mb-6 text-center">
           <p className="text-sm uppercase tracking-[0.25em] text-slate-300">10k hours</p>
           <h1 className="text-2xl font-bold text-white">Focus & Time Tracking</h1>
-          <p className="mt-2 text-sm text-slate-200">Dang nhap bang email va mat khau cua ban.</p>
+          <p className="mt-2 text-sm text-slate-200">Đăng nhập bằng email và mật khẩu của bạn.</p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -67,20 +67,20 @@ const LoginPage = () => {
               checked={rememberMe}
               onChange={(e) => setRememberMe(e.target.checked)}
             />
-            <span>Luu dang nhap (ghi nho tren thiet bi nay)</span>
+            <span>Lưu đăng nhập (ghi nhớ trên thiết bị này)</span>
           </label>
           {error ? <p className="text-sm text-rose-200">{error}</p> : null}
           <button
             type="submit"
             className="w-full rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-400"
           >
-            Dang nhap
+            Đăng nhập
           </button>
         </form>
         <p className="mt-4 text-center text-sm text-slate-200">
-          Chua co tai khoan?{" "}
+          Chưa có tài khoản?{" "}
           <Link className="text-emerald-300 underline underline-offset-4" to="/register">
-            Dang ky
+            Đăng ký
           </Link>
         </p>
       </div>
