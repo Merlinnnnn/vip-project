@@ -9,8 +9,8 @@ import {
   Title,
   Tooltip,
 } from "chart.js";
-import PageTitle from "../../components/common/PageTitle";
-import TaskList from "../../components/tasks/TaskList";
+import PageTitle from "../../components/ui/PageTitle";
+import TaskList from "../Tasks/components/TaskList";
 import HeroProfile from "./components/HeroProfile";
 import StatsCards from "./components/StatsCards";
 import ActivityChart from "./components/ActivityChart";

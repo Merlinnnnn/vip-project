@@ -1,4 +1,4 @@
-import Card from "../../../components/common/Card";
+import Card from "../../../components/ui/Card";
 import type { TaskStatus } from "../../../types/task";
 
 type StatusStats = Record<TaskStatus, number>;

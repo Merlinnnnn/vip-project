@@ -1,5 +1,5 @@
 import { Plus, Search } from "lucide-react";
-import PageTitle from "../../../components/common/PageTitle";
+import PageTitle from "../../../components/ui/PageTitle";
 import { useTaskUiStore } from "../../../store/useTaskUiStore";
 
 const TasksHeader = () => {

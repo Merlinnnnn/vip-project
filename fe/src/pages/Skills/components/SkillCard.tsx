@@ -1,5 +1,5 @@
-import Card from "../common/Card";
-import type { Skill } from "../../types/skill";
+import Card from "../../../components/ui/Card";
+import type { Skill } from "../../../types/skill";
 
 type Props = {
   skill: Skill;

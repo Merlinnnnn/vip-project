@@ -1,8 +1,8 @@
 import type { FC } from "react";
-import { useAuth } from "../../routes/AuthContext";
+import { useAuth } from "../../context/AuthContext";
 import { useTranslation } from "react-i18next";
-import ThemeToggle from "../common/ThemeToggle";
-import LanguageSelector from "../common/LanguageSelector";
+import ThemeToggle from "../ui/ThemeToggle";
+import LanguageSelector from "../ui/LanguageSelector";
 
 type Props = {
   isSidebarCollapsed: boolean;

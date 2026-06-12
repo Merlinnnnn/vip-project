@@ -1,5 +1,5 @@
-import Card from "../common/Card";
-import type { Task } from "../../types/task";
+import Card from "../../../components/ui/Card";
+import type { Task } from "../../../types/task";
 
 type Props = {
   tasks: Task[];

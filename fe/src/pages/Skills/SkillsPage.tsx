@@ -1,12 +1,15 @@
 import { useState, type FormEvent } from "react";
-import PageTitle from "../../components/common/PageTitle";
-import SkillCard from "../../components/skills/SkillCard";
+import PageTitle from "../../components/ui/PageTitle";
 import {
   useSkills,
   useCreateSkill,
   useUpdateSkill,
   useDeleteSkill,
 } from "../../hooks/useSkills";
+import SkillCard from "./components/SkillCard";
+import AddSkillForm from "./components/AddSkillForm";
+import SkillEditCard from "./components/SkillEditCard";
+import SkillDeleteConfirm from "./components/SkillDeleteConfirm";
 
 const defaultForm = { name: "", targetHours: 10000 };
 
@@ -34,15 +37,10 @@ const SkillsPage = () => {
       return;
     }
     setError(null);
-
     createSkill.mutate(
+      { name: form.name.trim(), targetMinutes: Math.max(1, form.targetHours) * 60 },
       {
-        name: form.name.trim(),
-        targetMinutes: Math.max(1, form.targetHours) * 60,
-      },
-      {
-        onSuccess: () =>
-          setForm({ ...defaultForm, targetHours: form.targetHours }),
+        onSuccess: () => setForm({ ...defaultForm, targetHours: form.targetHours }),
         onError: (err) => setError(err.message),
       },
     );
@@ -54,8 +52,7 @@ const SkillsPage = () => {
     setEditingId(skillId);
     setEditForm({
       name: skill.name,
-      targetHours:
-        Math.max(1, Math.round((skill.targetMinutes ?? 0) / 60)) || 1,
+      targetHours: Math.max(1, Math.round((skill.targetMinutes ?? 0) / 60)) || 1,
     });
     setError(null);
   };
@@ -71,35 +68,17 @@ const SkillsPage = () => {
       return;
     }
     setError(null);
-
     updateSkillMutation.mutate(
-      {
-        id: skillId,
-        input: {
-          name: editForm.name.trim(),
-          targetMinutes: Math.max(1, editForm.targetHours) * 60,
-        },
-      },
-      {
-        onSuccess: () => cancelEdit(),
-        onError: (err) => setError(err.message),
-      },
+      { id: skillId, input: { name: editForm.name.trim(), targetMinutes: Math.max(1, editForm.targetHours) * 60 } },
+      { onSuccess: () => cancelEdit(), onError: (err) => setError(err.message) },
     );
-  };
-
-  const handleDelete = (skillId: string) => {
-    // Hiện inline confirm thay vì window.confirm
-    setConfirmDeleteId(skillId);
   };
 
   const confirmDelete = (skillId: string) => {
     setConfirmDeleteId(null);
     setError(null);
-
     deleteSkillMutation.mutate(skillId, {
-      onSuccess: () => {
-        if (editingId === skillId) cancelEdit();
-      },
+      onSuccess: () => { if (editingId === skillId) cancelEdit(); },
       onError: (err) => setError(err.message),
     });
   };
@@ -111,148 +90,49 @@ const SkillsPage = () => {
         subtitle="Theo dõi giờ học cho từng skill và gắn task để tích lũy thời gian."
       />
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <form onSubmit={handleSubmit} className="grid gap-3 md:grid-cols-3">
-          <div className="md:col-span-2 space-y-1">
-            <label className="text-xs font-semibold text-slate-600">
-              Tên skill
-            </label>
-            <input
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
-              value={form.name}
-              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              placeholder="Ví dụ: English speaking"
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-slate-600">
-              Mục tiêu (giờ)
-            </label>
-            <input
-              type="number"
-              min={1}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
-              value={form.targetHours}
-              onChange={(e) =>
-                setForm((f) => ({
-                  ...f,
-                  targetHours: Number(e.target.value) || 0,
-                }))
-              }
-            />
-          </div>
-          <div className="md:col-span-3 flex justify-end">
-            <button
-              type="submit"
-              disabled={isMutating}
-              className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {createSkill.isPending ? "Đang lưu..." : "Thêm skill"}
-            </button>
-          </div>
-        </form>
-        {error ? <p className="mt-2 text-sm text-rose-500">{error}</p> : null}
-      </div>
+      <AddSkillForm
+        form={form}
+        onChange={setForm}
+        onSubmit={handleSubmit}
+        isPending={createSkill.isPending}
+        error={error}
+        skills={skills}
+      />
 
       {isLoading ? (
         <p className="text-sm text-slate-600">Đang tải skill...</p>
       ) : (
         <div className="grid gap-4 md:grid-cols-3">
-          {skills.map((skill) =>
-            editingId === skill.id ? (
-              <div
-                key={skill.id}
-                className="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm space-y-3"
-              >
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-semibold text-amber-700">
-                    Chỉnh sửa skill
-                  </p>
-                  <button
-                    type="button"
-                    onClick={cancelEdit}
-                    className="text-xs font-semibold text-slate-600 hover:text-slate-800"
-                  >
-                    Hủy
-                  </button>
-                </div>
-                <div className="space-y-2">
-                  <label className="space-y-1 text-xs font-semibold text-slate-700">
-                    <span className="block">Tên skill</span>
-                    <input
-                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
-                      value={editForm.name}
-                      onChange={(e) =>
-                        setEditForm((f) => ({ ...f, name: e.target.value }))
-                      }
-                    />
-                  </label>
-                  <label className="space-y-1 text-xs font-semibold text-slate-700">
-                    <span className="block">Mục tiêu (giờ)</span>
-                    <input
-                      type="number"
-                      min={1}
-                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
-                      value={editForm.targetHours}
-                      onChange={(e) =>
-                        setEditForm((f) => ({
-                          ...f,
-                          targetHours: Number(e.target.value) || 0,
-                        }))
-                      }
-                    />
-                  </label>
-                </div>
-                <div className="flex justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => submitEdit(skill.id)}
-                    disabled={isMutating}
-                    className="rounded-lg bg-emerald-500 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-400 disabled:opacity-70"
-                  >
-                    Lưu
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(skill.id)}
-                    disabled={isMutating}
-                    className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 ring-1 ring-rose-200 hover:bg-rose-100 disabled:opacity-70"
-                  >
-                    Xóa
-                  </button>
-                </div>
-              </div>
-            ) : confirmDeleteId === skill.id ? (
-              // Inline confirm — thay thế window.confirm
-              <div
-                key={skill.id}
-                className="rounded-2xl border border-rose-200 bg-rose-50 p-4 shadow-sm space-y-3"
-              >
-                <p className="text-sm font-semibold text-rose-700">
-                  Xóa skill "{skill.name}"?
-                </p>
-                <p className="text-xs text-rose-600">
-                  Các task đang gắn skill này sẽ bị bỏ liên kết.
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => confirmDelete(skill.id)}
-                    disabled={isMutating}
-                    className="flex-1 rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-70"
-                  >
-                    {deleteSkillMutation.isPending ? "Đang xóa..." : "Xác nhận xóa"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setConfirmDeleteId(null)}
-                    className="flex-1 rounded-lg bg-white px-3 py-2 text-xs font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
-                  >
-                    Hủy
-                  </button>
-                </div>
-              </div>
-            ) : (
+          {skills.map((skill) => {
+            if (editingId === skill.id) {
+              return (
+                <SkillEditCard
+                  key={skill.id}
+                  skillId={skill.id}
+                  skillName={skill.name}
+                  form={editForm}
+                  onChange={setEditForm}
+                  onSave={() => submitEdit(skill.id)}
+                  onCancel={cancelEdit}
+                  onDelete={() => setConfirmDeleteId(skill.id)}
+                  isPending={isMutating}
+                />
+              );
+            }
+
+            if (confirmDeleteId === skill.id) {
+              return (
+                <SkillDeleteConfirm
+                  key={skill.id}
+                  skillName={skill.name}
+                  onConfirm={() => confirmDelete(skill.id)}
+                  onCancel={() => setConfirmDeleteId(null)}
+                  isPending={deleteSkillMutation.isPending}
+                />
+              );
+            }
+
+            return (
               <div key={skill.id} className="space-y-2">
                 <SkillCard skill={skill} />
                 <div className="flex gap-2">
@@ -265,20 +145,17 @@ const SkillsPage = () => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleDelete(skill.id)}
+                    onClick={() => setConfirmDeleteId(skill.id)}
                     className="flex-1 rounded-lg bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 ring-1 ring-rose-200 hover:bg-rose-100"
                   >
                     Xóa
                   </button>
                 </div>
               </div>
-            ),
-
-          )}
+            );
+          })}
           {skills.length === 0 ? (
-            <p className="text-sm text-slate-500">
-              Chưa có skill nào, hãy thêm mới.
-            </p>
+            <p className="text-sm text-slate-500">Chưa có skill nào, hãy thêm mới.</p>
           ) : null}
         </div>
       )}

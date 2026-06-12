@@ -6,7 +6,7 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import App from "./App";
 import "./styles/globals.css";
 import "./lib/i18n";
-import { AuthProvider } from "./routes/AuthContext";
+import { AuthProvider } from "./context/AuthContext";
 import { queryClient } from "./lib/queryClient";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(

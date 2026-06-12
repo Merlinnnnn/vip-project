@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Pie } from "react-chartjs-2";
-import Card from "../../../components/common/Card";
+import Card from "../../../components/ui/Card";
 import type { TaskStatus } from "../../../types/task";
 
 type StatusStats = Record<TaskStatus, number>;

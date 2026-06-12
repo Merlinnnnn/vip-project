@@ -1,5 +1,5 @@
 import { useState } from "react";
-import PageTitle from "../../components/common/PageTitle";
+import PageTitle from "../../components/ui/PageTitle";
 import { useAuth } from "../../context/AuthContext";
 
 type SaveStatus = "idle" | "saving" | "saved";

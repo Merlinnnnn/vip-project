@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "../routes/AuthContext";
+import { useAuth } from "../context/AuthContext";
 import { queryKeys } from "../lib/queryKeys";
 import {
   listSkills,
@@ -49,6 +49,12 @@ export const useCreateSkill = () => {
         created,
       ]);
       queryClient.invalidateQueries({ queryKey: queryKeys.skills.stats });
+    },
+
+    onSettled: () => {
+      // Revalidate để đảm bảo cache đồng bộ với server
+      // (server có thể gán thêm field như createdAt, updatedAt, etc.)
+      void queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
     },
   });
 };

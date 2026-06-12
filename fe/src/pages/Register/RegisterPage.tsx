@@ -1,7 +1,7 @@
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useAuth } from "../../routes/AuthContext";
+import { useAuth } from "../../context/AuthContext";
 
 const RegisterPage = () => {
   const [email, setEmail] = useState("");

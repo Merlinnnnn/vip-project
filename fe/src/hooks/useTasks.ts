@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "../routes/AuthContext";
+import { useAuth } from "../context/AuthContext";
 import { queryKeys } from "../lib/queryKeys";
 import {
   listTasks,

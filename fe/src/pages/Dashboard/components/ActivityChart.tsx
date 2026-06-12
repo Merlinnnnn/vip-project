@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Bar } from "react-chartjs-2";
-import Card from "../../../components/common/Card";
+import Card from "../../../components/ui/Card";
 
 type WeeklyEntry = { label: string; created: number; done: number };
 
