@@ -5,20 +5,46 @@ services:
     build: ./services/auth-service
     env_file:
       - ./services/auth-service/.env
-    ports:
-      - "3000:3000"
+    # Không expose port ra host — nginx gọi nội bộ qua Docker network
+    expose:
+      - "3000"
     depends_on:
       - postgres
+    deploy:
+      replicas: 3          # Chạy 3 instance song song
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   task-service:
     build: ./services/task-service
     env_file:
       - ./services/task-service/.env
-    ports:
-      - "3001:3001"
+    # Không expose port ra host — nginx gọi nội bộ qua Docker network
+    expose:
+      - "3001"
     depends_on:
       - postgres
       - redis
+    deploy:
+      replicas: 3          # Chạy 3 instance song song
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3001/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   redis:
     image: redis:7-alpine
