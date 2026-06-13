@@ -6,6 +6,7 @@ import { RegisterCommand } from '../../application/handlers/register.handler';
 import { LoginCommand } from '../../application/handlers/login.handler';
 import { GetMeQuery } from '../../application/handlers/get-me.query';
 import { RefreshTokenCommand } from '../../application/handlers/refresh-token.handler';
+import { LogoutCommand } from '../../application/handlers/logout.handler';
 
 export class AuthController {
   public readonly router: Router;
@@ -16,6 +17,7 @@ export class AuthController {
     this.router.post('/login', this.login);
     this.router.get('/me', this.me);
     this.router.post('/refresh', this.refresh);
+    this.router.post('/logout', this.logout);
   }
 
   private register = async (req: Request, res: Response, next: NextFunction) => {
@@ -66,6 +68,21 @@ export class AuthController {
       console.log('[AUTH][REFRESH] token received');
       const result = await this.mediator.send(new RefreshTokenCommand(refreshToken));
       res.json(result);
+    } catch (err) {
+      this.handleError(err, res, next);
+    }
+  };
+
+  private logout = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const refreshToken = req.body?.refreshToken as string | undefined;
+      if (!refreshToken) {
+        res.status(400).json({ message: 'Missing refreshToken' });
+        return;
+      }
+      console.log('[AUTH][LOGOUT] revoking refresh token');
+      await this.mediator.send(new LogoutCommand(refreshToken));
+      res.status(204).send();
     } catch (err) {
       this.handleError(err, res, next);
     }

@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { login as loginApi, register as registerApi, refresh as refreshApi } from "../lib/authApi";
+import { login as loginApi, register as registerApi, refresh as refreshApi, logout as logoutApi } from "../lib/authApi";
 import type { AuthUser } from "../types/auth";
 
 type AuthContextType = {
@@ -71,13 +71,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   );
 
   const logout = useCallback(() => {
+    // Revoke refresh token trên server (fire-and-forget — không block UX)
+    if (refreshToken) {
+      logoutApi(refreshToken).catch((err) =>
+        console.warn("[AUTH] Server logout failed (token still cleared locally):", err)
+      );
+    }
     setToken(null);
     setRefreshToken(null);
     setUser(null);
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(REFRESH_KEY);
     localStorage.removeItem(USER_KEY);
-  }, []);
+  }, [refreshToken]);
 
   const login = useCallback(
     async (email: string, password: string, remember?: boolean) => {

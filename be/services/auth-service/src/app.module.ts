@@ -10,6 +10,7 @@ import { RegisterCommand, RegisterHandler } from './application/handlers/registe
 import { LoginCommand, LoginHandler } from './application/handlers/login.handler';
 import { GetMeQuery, GetMeHandler } from './application/handlers/get-me.query';
 import { RefreshTokenCommand, RefreshTokenHandler } from './application/handlers/refresh-token.handler';
+import { LogoutCommand, LogoutHandler } from './application/handlers/logout.handler';
 
 export function createApp() {
   const app = express();
@@ -41,6 +42,7 @@ export function createApp() {
   );
   mediator.register(GetMeQuery, new GetMeHandler(userRepository));
   mediator.register(RefreshTokenCommand, new RefreshTokenHandler(userRepository, jwtProvider));
+  mediator.register(LogoutCommand, new LogoutHandler(userRepository));
 
   const authController = new AuthController(mediator);
   app.use('/api/auth', authController.router);

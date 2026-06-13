@@ -14,3 +14,6 @@ export const getMe = (userId: string): Promise<{ id: string; email: string }> =>
 
 export const refresh = (refreshToken: string): Promise<AuthResponse> =>
   authApi.post<AuthResponse>("refresh", { refreshToken });
+
+export const logout = (refreshToken: string): Promise<void> =>
+  authApi.post<void>("logout", { refreshToken });
