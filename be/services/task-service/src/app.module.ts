@@ -33,11 +33,18 @@ import {
   GetUserStatsQuery,
   GetUserStatsHandler
 } from './application/handlers/skills.handler';
+import {
+  createGlobalApiLimiter,
+  createTaskWriteLimiter,
+} from './infrastructure/middleware/rate-limit.middleware';
 
 export function createApp() {
   const app = express();
   app.use(cors());
   app.use(express.json());
+
+  // Tin tưởng IP từ Nginx proxy (để rate-limit theo IP thật)
+  app.set('trust proxy', 1);
 
   const repo = new PrismaTaskRepository();
   const skillRepo = new PrismaSkillRepository();
@@ -65,8 +72,15 @@ export function createApp() {
   const queueService = new NotificationQueueService(redisUrl, mediator);
   new DelayedNotificationHandler(mediator, queueService);
 
-  const tasksController = new TaskController(mediator, tokenStore);
-  const skillsController = new SkillController(mediator, tokenStore);
+  // ── Rate Limiters ─────────────────────────────────────
+  const globalLimiter = createGlobalApiLimiter();
+  const writeLimiter = createTaskWriteLimiter();
+
+  // Apply global limiter cho toàn bộ API
+  app.use(globalLimiter);
+
+  const tasksController = new TaskController(mediator, tokenStore, writeLimiter);
+  const skillsController = new SkillController(mediator, tokenStore, writeLimiter);
   const notificationController = new NotificationController(mediator);
   const authController = new AuthController(tokenStore);
 

@@ -11,11 +11,19 @@ import { LoginCommand, LoginHandler } from './application/handlers/login.handler
 import { GetMeQuery, GetMeHandler } from './application/handlers/get-me.query';
 import { RefreshTokenCommand, RefreshTokenHandler } from './application/handlers/refresh-token.handler';
 import { LogoutCommand, LogoutHandler } from './application/handlers/logout.handler';
+import {
+  createLoginLimiter,
+  createRegisterLimiter,
+  createRefreshTokenLimiter,
+} from './infrastructure/middleware/rate-limit.middleware';
 
 export function createApp() {
   const app = express();
   app.use(cors());
   app.use(express.json());
+
+  // Tin tưởng IP từ Nginx proxy (để rate-limit theo IP thật, không phải IP của nginx)
+  app.set('trust proxy', 1);
 
   // Request logger (simple)
   app.use((req, _res, next) => {
@@ -44,7 +52,17 @@ export function createApp() {
   mediator.register(RefreshTokenCommand, new RefreshTokenHandler(userRepository, jwtProvider));
   mediator.register(LogoutCommand, new LogoutHandler(userRepository));
 
-  const authController = new AuthController(mediator);
+  // Khởi tạo rate limiters 1 lần khi app start, tái sử dụng cho mọi request
+  const loginLimiter = createLoginLimiter();
+  const registerLimiter = createRegisterLimiter();
+  const refreshLimiter = createRefreshTokenLimiter();
+
+  const authController = new AuthController(mediator, {
+    loginLimiter,
+    registerLimiter,
+    refreshLimiter,
+  });
+
   app.use('/api/auth', authController.router);
 
   app.get('/health', (_req, res) => res.json({ status: 'ok' }));

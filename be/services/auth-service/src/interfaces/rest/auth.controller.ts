@@ -1,4 +1,4 @@
-import { Router, Request, Response, NextFunction } from 'express';
+import { Router, Request, Response, NextFunction, RequestHandler } from 'express';
 import { RegisterDto } from '../../application/dto/register.dto';
 import { LoginDto } from '../../application/dto/login.dto';
 import { Mediator } from '../../shared/mediator';
@@ -8,15 +8,39 @@ import { GetMeQuery } from '../../application/handlers/get-me.query';
 import { RefreshTokenCommand } from '../../application/handlers/refresh-token.handler';
 import { LogoutCommand } from '../../application/handlers/logout.handler';
 
+// ─────────────────────────────────────────────────────────
+// Rate limiter middlewares được inject vào qua constructor
+// → Controller không biết gì về Redis hay implementation cụ thể
+// ─────────────────────────────────────────────────────────
+export interface AuthRateLimiters {
+  loginLimiter: RequestHandler;
+  registerLimiter: RequestHandler;
+  refreshLimiter: RequestHandler;
+}
+
 export class AuthController {
   public readonly router: Router;
 
-  constructor(private readonly mediator: Mediator) {
+  constructor(
+    private readonly mediator: Mediator,
+    private readonly rateLimiters?: AuthRateLimiters
+  ) {
     this.router = Router();
-    this.router.post('/register', this.register);
-    this.router.post('/login', this.login);
+
+    // Apply limiters trực tiếp vào từng route — không phải toàn bộ router
+    if (rateLimiters) {
+      this.router.post('/register', rateLimiters.registerLimiter, this.register);
+      this.router.post('/login', rateLimiters.loginLimiter, this.login);
+      this.router.post('/refresh', rateLimiters.refreshLimiter, this.refresh);
+    } else {
+      // Fallback khi không có rate limiters (ví dụ trong testing)
+      this.router.post('/register', this.register);
+      this.router.post('/login', this.login);
+      this.router.post('/refresh', this.refresh);
+    }
+
+    // Các route này không cần rate limit
     this.router.get('/me', this.me);
-    this.router.post('/refresh', this.refresh);
     this.router.post('/logout', this.logout);
   }
 
@@ -93,6 +117,7 @@ export class AuthController {
     let status = 400;
     if (/invalid credentials/i.test(message)) status = 401;
     if (/refresh token/i.test(message)) status = 401;
+    if (/access token/i.test(message)) status = 401;
     if (/already in use/i.test(message)) status = 409;
     if (/not found/i.test(message)) status = 404;
     console.error('[AUTH][ERROR]', message);

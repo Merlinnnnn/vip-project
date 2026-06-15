@@ -1,4 +1,4 @@
-import { Router, type Request, type Response, type NextFunction } from 'express';
+import { Router, type Request, type Response, type NextFunction, type RequestHandler } from 'express';
 import { Mediator } from '../../shared/mediator';
 import { TokenStore } from '../../infrastructure/cache/token.store';
 import {
@@ -14,14 +14,16 @@ export class SkillController {
 
   constructor(
     private readonly mediator: Mediator,
-    private readonly tokenStore?: TokenStore
+    private readonly tokenStore?: TokenStore,
+    private readonly writeLimiter?: RequestHandler
   ) {
     this.router = Router();
     this.router.get('/', this.getAll);
     this.router.get('/stats', this.getStats);
-    this.router.post('/', this.create);
-    this.router.put('/:id', this.update);
-    this.router.delete('/:id', this.remove);
+    // Apply write limiter chỉ với các mutation operations
+    this.router.post('/', ...(writeLimiter ? [writeLimiter] : []), this.create);
+    this.router.put('/:id', ...(writeLimiter ? [writeLimiter] : []), this.update);
+    this.router.delete('/:id', ...(writeLimiter ? [writeLimiter] : []), this.remove);
   }
 
   private getAll = async (req: Request, res: Response, next: NextFunction) => {
