@@ -1,14 +1,18 @@
 import { Router, Request, Response } from 'express';
 import { Mediator } from '../../shared/mediator';
 import { TaskScheduledEvent } from '../../application/events/task-events';
+import { TokenStore } from '../../infrastructure/cache/token.store';
 
 export class NotificationController {
   public readonly router = Router();
-  private clients: { userId?: string; res: Response }[] = [];
+  private clients: { userId: string; res: Response }[] = [];
 
-  constructor(private readonly mediator: Mediator) {
+  constructor(
+    private readonly mediator: Mediator,
+    private readonly tokenStore?: TokenStore
+  ) {
     this.router.get('/stream', this.stream.bind(this));
-    
+
     // Subscribe to events
     this.mediator.subscribe(TaskScheduledEvent, (event) => {
       this.broadcast({
@@ -18,21 +22,43 @@ export class NotificationController {
     });
   }
 
-  private stream(req: Request, res: Response) {
-    const userId = req.query.userId as string;
+  private async stream(req: Request, res: Response) {
+    // ── Authenticate ─────────────────────────────────────────────
+    // Lấy token từ Authorization header hoặc query param ?token=
+    const bearerHeader = req.header('authorization')?.replace(/^Bearer\s*/i, '').trim();
+    const queryToken = req.query.token as string | undefined;
+    const rawToken = bearerHeader ?? queryToken;
 
-    // Basic SSE headers
+    if (!rawToken) {
+      res.status(401).json({ message: 'Missing access token for SSE stream' });
+      return;
+    }
+
+    let userId: string | null = null;
+
+    if (this.tokenStore) {
+      userId = await this.tokenStore.getUserIdByAccessToken(rawToken);
+    }
+
+    if (!userId) {
+      res.status(401).json({ message: 'Invalid or expired access token' });
+      return;
+    }
+    // ─────────────────────────────────────────────────────────────
+
+    // SSE headers
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     res.flushHeaders();
 
-    this.clients.push({ userId, res });
-    console.log('[NOTIFICATION] Client connected. Total clients:', this.clients.length);
+    const client = { userId, res };
+    this.clients.push(client);
+    console.log(`[NOTIFICATION] Client connected (userId=${userId}). Total: ${this.clients.length}`);
 
     req.on('close', () => {
       this.clients = this.clients.filter(c => c.res !== res);
-      console.log('[NOTIFICATION] Client disconnected. Total clients:', this.clients.length);
+      console.log(`[NOTIFICATION] Client disconnected (userId=${userId}). Total: ${this.clients.length}`);
     });
   }
 

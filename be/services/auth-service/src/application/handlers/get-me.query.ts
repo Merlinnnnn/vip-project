@@ -14,6 +14,6 @@ export class GetMeHandler implements IRequestHandler<GetMeQuery, any> {
       throw new Error('User not found');
     }
 
-    return { id: user.id, email: user.email };
+    return { id: user.id, email: user.email, name: user.name ?? null };
   }
 }

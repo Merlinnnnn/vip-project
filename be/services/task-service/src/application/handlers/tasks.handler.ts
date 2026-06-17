@@ -8,6 +8,7 @@ import { UpdateTaskDto } from '../dto/update-task.dto';
 import { Task } from '../../domain/entities/task.entity';
 import { UUID } from '../../shared';
 import { randomUUID } from 'crypto';
+import { NotificationQueueService } from '../../infrastructure/queue/bullmq.infrastructure';
 
 // Commands & Queries
 export class CreateTaskCommand implements IRequest<Task> {
@@ -139,7 +140,11 @@ export class UpdateTaskHandler implements IRequestHandler<UpdateTaskCommand, Tas
 }
 
 export class DeleteTaskHandler implements IRequestHandler<DeleteTaskCommand, void> {
-  constructor(private readonly repo: TaskRepository, private readonly skills?: SkillRepository) {}
+  constructor(
+    private readonly repo: TaskRepository,
+    private readonly skills?: SkillRepository,
+    private readonly queue?: NotificationQueueService
+  ) {}
 
   async handle(command: DeleteTaskCommand): Promise<void> {
     const { userId, id } = command;
@@ -148,6 +153,8 @@ export class DeleteTaskHandler implements IRequestHandler<DeleteTaskCommand, voi
       throw new Error('Task not found');
     }
     await this.repo.delete(id, userId);
+    // Cancel pending BullMQ notification để tránh ghost notification
+    await this.queue?.cancelNotification(id);
     if (this.skills && task.skillId && task.learningMinutes) {
       await this.skills.incrementTotalMinutes(task.skillId, userId, -task.learningMinutes);
     }

@@ -34,6 +34,6 @@ export class LoginHandler implements IRequestHandler<LoginCommand, AuthResponseD
     await this.userRepository.update(user);
 
     const accessToken = this.jwtProvider.sign({ sub: user.id, email: user.email });
-    return new AuthResponseDto(accessToken, refresh.token, { id: user.id, email: user.email });
+    return new AuthResponseDto(accessToken, refresh.token, { id: user.id, email: user.email, name: user.name });
   }
 }

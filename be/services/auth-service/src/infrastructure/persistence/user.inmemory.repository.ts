@@ -24,6 +24,7 @@ export class InMemoryUserRepository extends UserRepository {
     const nextUser = new User(
       id,
       user.email,
+      user.name ?? null,
       user.passwordHash,
       user.createdAt,
       user.refreshToken,

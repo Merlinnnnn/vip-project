@@ -8,6 +8,7 @@ function mapToDomain(user: PrismaUser): User {
   return new User(
     user.id,
     user.email,
+    user.name ?? null,
     user.passwordHash,
     user.createdAt,
     user.refreshToken,
@@ -36,6 +37,7 @@ export class PrismaUserRepository extends UserRepository {
       data: {
         id: user.id,
         email: user.email,
+        name: user.name,
         passwordHash: user.passwordHash,
         createdAt: user.createdAt,
         refreshToken: user.refreshToken,
@@ -50,6 +52,7 @@ export class PrismaUserRepository extends UserRepository {
       where: { id: user.id },
       data: {
         email: user.email,
+        name: user.name,
         passwordHash: user.passwordHash,
         refreshToken: user.refreshToken,
         refreshTokenExpiresAt: user.refreshTokenExpiresAt

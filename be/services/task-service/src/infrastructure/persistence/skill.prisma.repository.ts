@@ -54,12 +54,27 @@ export class PrismaSkillRepository extends SkillRepository {
 
   async incrementTotalMinutes(id: UUID, userId: UUID, delta: number): Promise<void> {
     if (delta === 0) return;
+    // Dùng GREATEST(0, totalMinutes + delta) để đảm bảo không âm
     const res = await client.skill.updateMany({
       where: { id, userId },
-      data: { totalMinutes: { increment: delta } }
+      data: {
+        totalMinutes: {
+          // Nếu delta dương: cộng bình thường
+          // Nếu delta âm: Prisma không hỗ trợ GREATEST natively,
+          // nên fetch trước rồi set giá trị an toàn
+          increment: delta
+        }
+      }
     });
     if (!res.count) {
       throw new Error('Skill not found');
+    }
+    // Sau increment, clamp về 0 nếu âm (edge case khi delta > totalMinutes)
+    if (delta < 0) {
+      await client.skill.updateMany({
+        where: { id, userId, totalMinutes: { lt: 0 } },
+        data: { totalMinutes: 0 }
+      });
     }
   }
 

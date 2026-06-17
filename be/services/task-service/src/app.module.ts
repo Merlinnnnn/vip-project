@@ -5,7 +5,6 @@ import { PrismaTaskRepository } from './infrastructure/persistence/task.prisma.r
 import { PrismaSkillRepository } from './infrastructure/persistence/skill.prisma.repository';
 import { TaskController } from './interfaces/rest/task.controller';
 import { TokenStore } from './infrastructure/cache/token.store';
-import { AuthController } from './interfaces/rest/auth.controller';
 import { SkillController } from './interfaces/rest/skill.controller';
 import { NotificationController } from './interfaces/rest/notification.controller';
 import { Mediator } from './shared/mediator';
@@ -55,10 +54,14 @@ export function createApp() {
   // Mediator setup
   const mediator = new Mediator();
 
+  // Notification Queue setup (phải trước handlers để inject vào DeleteTaskHandler)
+  const queueService = new NotificationQueueService(redisUrl, mediator);
+  new DelayedNotificationHandler(mediator, queueService);
+
   // Task handlers
   mediator.register(CreateTaskCommand, new CreateTaskHandler(repo, domain, mediator, skillRepo));
   mediator.register(UpdateTaskCommand, new UpdateTaskHandler(repo, domain, mediator, skillRepo));
-  mediator.register(DeleteTaskCommand, new DeleteTaskHandler(repo, skillRepo));
+  mediator.register(DeleteTaskCommand, new DeleteTaskHandler(repo, skillRepo, queueService));
   mediator.register(ListTasksQuery, new ListTasksHandler(repo));
 
   // Skill handlers
@@ -67,10 +70,6 @@ export function createApp() {
   mediator.register(DeleteSkillCommand, new DeleteSkillHandler(skillRepo));
   mediator.register(ListSkillsQuery, new ListSkillsHandler(skillRepo));
   mediator.register(GetUserStatsQuery, new GetUserStatsHandler(skillRepo));
-
-  // Notification Queue setup
-  const queueService = new NotificationQueueService(redisUrl, mediator);
-  new DelayedNotificationHandler(mediator, queueService);
 
   // ── Rate Limiters ─────────────────────────────────────
   const globalLimiter = createGlobalApiLimiter();
@@ -81,13 +80,10 @@ export function createApp() {
 
   const tasksController = new TaskController(mediator, tokenStore, writeLimiter);
   const skillsController = new SkillController(mediator, tokenStore, writeLimiter);
-  const notificationController = new NotificationController(mediator);
-  const authController = new AuthController(tokenStore);
-
+  const notificationController = new NotificationController(mediator, tokenStore);
   app.use('/api/tasks', tasksController.router);
   app.use('/api/skills', skillsController.router);
   app.use('/api/notifications', notificationController.router);
-  app.use('/api/auth', authController.router);
 
   app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
