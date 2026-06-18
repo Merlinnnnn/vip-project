@@ -2,6 +2,7 @@ import { Skill } from '../../domain/entities/skill.entity';
 import { SkillRepository } from '../../domain/repositories/skill.repository';
 import type { UUID } from '../../shared';
 import { prisma } from './prisma/prisma.client';
+import { appCache, AppCache } from '../cache/app.cache';
 
 const client = prisma as any;
 
@@ -27,7 +28,28 @@ export class PrismaSkillRepository extends SkillRepository {
     return skill ? mapToDomain(skill) : null;
   }
 
+  /**
+   * Lấy raw data cho skill stats (tính toán aggregate) — cached trong Redis.
+   * Cache key: skill-stats:{userId}, TTL 5 phút.
+   * Được invalidate pessimistically trước mọi write operation.
+   */
+  async getRawStatsData(userId: UUID): Promise<Skill[]> {
+    return appCache.getOrSet(
+      AppCache.skillStatsKey(userId),
+      5 * 60,
+      async () => {
+        const skills = await client.skill.findMany({ where: { userId } });
+        return skills.map(mapToDomain);
+      }
+    );
+  }
+
+  // ─── WRITE methods: pessimistic invalidate (xóa cache TRƯỚC khi ghi DB) ────
+  // Lý do: nếu ghi DB lỗi sau khi đã xóa cache → lần đọc tiếp lấy fresh từ DB ✅
+  //        nếu ghi DB thành công → cache trống → lần đọc tiếp lấy data mới ✅
+
   async update(skill: Skill): Promise<Skill> {
+    await appCache.invalidate(AppCache.skillStatsKey(skill.userId));
     const updated = await client.skill.update({
       where: { id: skill.id },
       data: {
@@ -40,6 +62,7 @@ export class PrismaSkillRepository extends SkillRepository {
   }
 
   async create(skill: Skill): Promise<Skill> {
+    await appCache.invalidate(AppCache.skillStatsKey(skill.userId));
     const created = await client.skill.create({
       data: {
         id: skill.id,
@@ -54,22 +77,16 @@ export class PrismaSkillRepository extends SkillRepository {
 
   async incrementTotalMinutes(id: UUID, userId: UUID, delta: number): Promise<void> {
     if (delta === 0) return;
-    // Dùng GREATEST(0, totalMinutes + delta) để đảm bảo không âm
+    // Skill stats thay đổi khi totalMinutes thay đổi → invalidate trước
+    await appCache.invalidate(AppCache.skillStatsKey(userId));
     const res = await client.skill.updateMany({
       where: { id, userId },
-      data: {
-        totalMinutes: {
-          // Nếu delta dương: cộng bình thường
-          // Nếu delta âm: Prisma không hỗ trợ GREATEST natively,
-          // nên fetch trước rồi set giá trị an toàn
-          increment: delta
-        }
-      }
+      data: { totalMinutes: { increment: delta } }
     });
     if (!res.count) {
       throw new Error('Skill not found');
     }
-    // Sau increment, clamp về 0 nếu âm (edge case khi delta > totalMinutes)
+    // Clamp về 0 nếu âm (edge case khi delta > totalMinutes hiện tại)
     if (delta < 0) {
       await client.skill.updateMany({
         where: { id, userId, totalMinutes: { lt: 0 } },
@@ -79,6 +96,7 @@ export class PrismaSkillRepository extends SkillRepository {
   }
 
   async delete(id: UUID, userId: UUID): Promise<void> {
+    await appCache.invalidate(AppCache.skillStatsKey(userId));
     await client.task.updateMany({
       where: { skillId: id, userId },
       data: { skillId: null }

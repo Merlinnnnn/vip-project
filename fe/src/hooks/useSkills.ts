@@ -20,6 +20,8 @@ export const useSkills = () => {
     queryKey: queryKeys.skills.all,
     queryFn: () => listSkills({ userId: user!.id, token }),
     enabled: Boolean(user),
+    // staleTime 2 phút — skills list ít thay đổi, FE invalidate sau mọi mutation
+    staleTime: 2 * 60 * 1000,
   });
 };
 
@@ -30,6 +32,9 @@ export const useSkillStats = () => {
     queryKey: queryKeys.skills.stats,
     queryFn: () => getStats({ userId: user!.id, token }),
     enabled: Boolean(user),
+    // staleTime 5 phút — khớp với BE Redis TTL (5 phút)
+    // BE đã cache và pessimistic invalidate → FE không cần refetch nếu chưa stale
+    staleTime: 5 * 60 * 1000,
   });
 };
 

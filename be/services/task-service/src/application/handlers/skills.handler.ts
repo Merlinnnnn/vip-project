@@ -99,11 +99,15 @@ export class GetUserStatsHandler implements IRequestHandler<GetUserStatsQuery, a
   constructor(private readonly repo: SkillRepository) {}
 
   async handle(query: GetUserStatsQuery): Promise<any> {
-    const skills = await this.repo.findAllByUser(query.userId);
-    
+    // Dùng getRawStatsData() để tận dụng Redis cache (TTL 5 phút, pessimistic invalidate)
+    const repo = this.repo as any;
+    const skills: Skill[] = typeof repo.getRawStatsData === 'function'
+      ? await repo.getRawStatsData(query.userId)
+      : await this.repo.findAllByUser(query.userId);
+
     const totalMinutes = skills.reduce((acc, s) => acc + s.totalMinutes, 0);
     const totalLevel = skills.reduce((acc, s) => acc + s.level, 0);
-    
+
     const topSkills = [...skills]
       .sort((a, b) => b.totalMinutes - a.totalMinutes)
       .slice(0, 3)
@@ -114,7 +118,6 @@ export class GetUserStatsHandler implements IRequestHandler<GetUserStatsQuery, a
         rank: s.rank
       }));
 
-    // Calculate global rank based on totalLevel
     let globalRank = 'Beginner';
     if (totalLevel >= 100) globalRank = 'Grandmaster';
     else if (totalLevel >= 50) globalRank = 'Expert';

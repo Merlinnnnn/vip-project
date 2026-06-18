@@ -21,6 +21,8 @@ export const useTasks = () => {
     queryFn: () => listTasks({ userId: user!.id, token }),
     enabled: Boolean(user),
     select: normalizeTasks,
+    // staleTime: 0 — tasks cần fresh mọi lần vì `overdue` status phụ thuộc Date.now()
+    staleTime: 0,
   });
 };
 
