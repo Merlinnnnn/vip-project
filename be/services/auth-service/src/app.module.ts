@@ -16,6 +16,7 @@ import {
   createRegisterLimiter,
   createRefreshTokenLimiter,
 } from './infrastructure/middleware/rate-limit.middleware';
+import { RabbitMQPublisher } from './infrastructure/messaging/rabbitmq.publisher';
 
 export function createApp() {
   const app = express();
@@ -37,12 +38,16 @@ export function createApp() {
   const jwtProvider = new JwtProvider();
   const userDomainService = new UserDomainService();
 
+  // RabbitMQ Publisher (fire-and-forget, non-blocking)
+  const rabbitmqUrl = process.env.RABBITMQ_URL || 'amqp://guest:guest@localhost:5672';
+  const rabbitPublisher = new RabbitMQPublisher(rabbitmqUrl);
+
   // Mediator setup
   const mediator = new Mediator();
 
   mediator.register(
     RegisterCommand,
-    new RegisterHandler(userRepository, userDomainService, passwordHasher, jwtProvider)
+    new RegisterHandler(userRepository, userDomainService, passwordHasher, jwtProvider, rabbitPublisher)
   );
   mediator.register(
     LoginCommand,

@@ -6,9 +6,11 @@ import { TaskDomainService } from '../../domain/services/task-domain.service';
 import { CreateTaskDto } from '../dto/create-task.dto';
 import { UpdateTaskDto } from '../dto/update-task.dto';
 import { Task } from '../../domain/entities/task.entity';
+import { Skill } from '../../domain/entities/skill.entity';
 import { UUID } from '../../shared';
 import { randomUUID } from 'crypto';
 import { NotificationQueueService } from '../../infrastructure/queue/bullmq.infrastructure';
+import { RabbitMQPublisher } from '../../infrastructure/messaging/rabbitmq.publisher';
 
 // Commands & Queries
 export class CreateTaskCommand implements IRequest<Task> {
@@ -27,13 +29,19 @@ export class ListTasksQuery implements IRequest<Task[]> {
   constructor(public readonly userId: UUID) {}
 }
 
+// Helper: so sánh level trước và sau khi cập nhật minutes
+function didLevelUp(before: Skill, after: Skill): boolean {
+  return after.level > before.level;
+}
+
 // Handlers
 export class CreateTaskHandler implements IRequestHandler<CreateTaskCommand, Task> {
   constructor(
     private readonly repo: TaskRepository,
     private readonly domain: TaskDomainService,
     private readonly mediator: Mediator,
-    private readonly skills?: SkillRepository
+    private readonly skills?: SkillRepository,
+    private readonly publisher?: RabbitMQPublisher
   ) {}
 
   async handle(command: CreateTaskCommand): Promise<Task> {
@@ -69,8 +77,26 @@ export class CreateTaskHandler implements IRequestHandler<CreateTaskCommand, Tas
     this.domain.ensureValidStatus(task.status);
     this.domain.enforceStatusForDueDate(task);
     const created = await this.repo.create(task);
+
     if (skillId && learningMinutes > 0 && this.skills) {
+      const skillBefore = await this.skills.findById(skillId, userId);
+      const levelBefore = skillBefore?.level ?? 0;
+
       await this.skills.incrementTotalMinutes(skillId, userId, learningMinutes);
+
+      // Kiểm tra level up sau khi thêm minutes
+      const skillAfter = await this.skills.findById(skillId, userId);
+      if (skillAfter && skillAfter.level > levelBefore) {
+        void this.publisher?.publish('skill.level_up', {
+          userId,
+          skillId,
+          skillName: skillAfter.name,
+          newLevel: skillAfter.level,
+          rank: skillAfter.rank,
+          totalMinutes: skillAfter.totalMinutes,
+          achievedAt: new Date().toISOString(),
+        });
+      }
     }
     
     // Publish scheduling event
@@ -85,7 +111,8 @@ export class UpdateTaskHandler implements IRequestHandler<UpdateTaskCommand, Tas
     private readonly repo: TaskRepository,
     private readonly domain: TaskDomainService,
     private readonly mediator: Mediator,
-    private readonly skills?: SkillRepository
+    private readonly skills?: SkillRepository,
+    private readonly publisher?: RabbitMQPublisher
   ) {}
 
   async handle(command: UpdateTaskCommand): Promise<Task> {
@@ -116,6 +143,11 @@ export class UpdateTaskHandler implements IRequestHandler<UpdateTaskCommand, Tas
     if (this.skills) {
       const newSkillId = updated.skillId ?? null;
       const newMinutes = updated.learningMinutes ?? 0;
+
+      // Snapshot level trước khi update để detect level up
+      const skillBeforeUpdate = newSkillId ? await this.skills.findById(newSkillId, userId) : null;
+      const levelBefore = skillBeforeUpdate?.level ?? 0;
+
       if (newSkillId === previousSkillId) {
         const delta = newMinutes - previousMinutes;
         if (newSkillId && delta !== 0) {
@@ -127,6 +159,22 @@ export class UpdateTaskHandler implements IRequestHandler<UpdateTaskCommand, Tas
         }
         if (newSkillId) {
           await this.skills.incrementTotalMinutes(newSkillId, userId, newMinutes);
+        }
+      }
+
+      // Kiểm tra level up sau khi cập nhật minutes
+      if (newSkillId) {
+        const skillAfterUpdate = await this.skills.findById(newSkillId, userId);
+        if (skillAfterUpdate && skillAfterUpdate.level > levelBefore) {
+          void this.publisher?.publish('skill.level_up', {
+            userId,
+            skillId: newSkillId,
+            skillName: skillAfterUpdate.name,
+            newLevel: skillAfterUpdate.level,
+            rank: skillAfterUpdate.rank,
+            totalMinutes: skillAfterUpdate.totalMinutes,
+            achievedAt: new Date().toISOString(),
+          });
         }
       }
     }

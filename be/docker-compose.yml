@@ -10,6 +10,7 @@ services:
       - "3000"
     depends_on:
       - postgres
+      - rabbitmq
     deploy:
       replicas: 3          # Chạy 3 instance song song
       restart_policy:
@@ -33,6 +34,7 @@ services:
     depends_on:
       - postgres
       - redis
+      - rabbitmq
     deploy:
       replicas: 3          # Chạy 3 instance song song
       restart_policy:
@@ -45,6 +47,39 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+
+  notification-service:
+    build: ./services/notification-service
+    env_file:
+      - ./services/notification-service/.env
+    expose:
+      - "3002"
+    depends_on:
+      - rabbitmq
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3002/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    ports:
+      - "5672:5672"      # AMQP protocol
+      - "15672:15672"    # Management UI → http://localhost:15672 (guest/guest)
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
 
   redis:
     image: redis:7-alpine
@@ -73,3 +108,4 @@ services:
 
 volumes:
   pgdata: {}
+  rabbitmq_data: {}

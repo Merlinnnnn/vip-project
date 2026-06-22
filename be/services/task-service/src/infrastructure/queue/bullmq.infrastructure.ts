@@ -2,6 +2,7 @@ import { Queue, Worker, Job } from 'bullmq';
 import { Mediator } from '../../shared/mediator';
 import { TaskScheduledEvent } from '../../application/events/task-events';
 import { UUID } from '../../shared';
+import { RabbitMQPublisher } from '../messaging/rabbitmq.publisher';
 
 export interface DelayedNotificationJob {
   taskId: UUID;
@@ -16,7 +17,8 @@ export class NotificationQueueService {
 
   constructor(
     private readonly redisUrl: string, 
-    private readonly mediator: Mediator
+    private readonly mediator: Mediator,
+    private readonly rabbitPublisher?: RabbitMQPublisher
   ) {
     const connection = { url: this.redisUrl };
     
@@ -25,14 +27,22 @@ export class NotificationQueueService {
     this.worker = new Worker('notification-queue', async (job: Job<DelayedNotificationJob>) => {
       console.log(`[QUEUE-WORKER] Processing delayed job ${job.id} for task: ${job.data.title}`);
       
-      // When the time is up, we publish an event back to the Mediator.
-      // This event will be caught by the NotificationController to push to SSE.
+      // 1. Publish SSE event (real-time notification trong browser)
       await this.mediator.publish(new TaskScheduledEvent(
         job.data.taskId,
         job.data.userId,
         `[ALARM] ${job.data.title}`,
         job.data.dueDate
       ));
+
+      // 2. Publish task.due_soon event lên RabbitMQ → notification-service sẽ gửi email
+      void this.rabbitPublisher?.publish('task.due_soon', {
+        taskId: job.data.taskId,
+        userId: job.data.userId,
+        title: job.data.title,
+        dueDate: job.data.dueDate,
+        firedAt: new Date().toISOString(),
+      });
     }, { connection });
 
     this.worker.on('completed', job => {
