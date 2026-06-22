@@ -1,5 +1,6 @@
 import { mailerService } from '../mailer/mailer.service';
 import { skillLevelUpTemplate } from '../mailer/templates/skill-level-up';
+import { userEmailResolver } from '../resolvers/user-email.resolver';
 
 export interface SkillLevelUpPayload {
   userId: string;
@@ -8,20 +9,21 @@ export interface SkillLevelUpPayload {
   newLevel: number;
   rank: string;
   totalMinutes: number;
-  userEmail?: string; // Optional: cần task-service truyền vào
   achievedAt: string;
 }
 
 /**
  * Xử lý event skill.level_up:
- * → Gửi email chúc mừng khi skill lên cấp.
+ * 1. Gọi auth-service để lấy email của user theo userId
+ * 2. Gửi email chúc mừng lên cấp
  */
 export async function handleSkillLevelUp(payload: SkillLevelUpPayload): Promise<void> {
   console.log(`[NOTIF] Handling skill.level_up: "${payload.skillName}" → Level ${payload.newLevel} (${payload.rank})`);
 
-  if (!payload.userEmail) {
-    console.warn(`[NOTIF] skill.level_up — missing userEmail in payload. Cannot send email for skill ${payload.skillId}.`);
-    console.warn('[NOTIF] Tip: Update task-service to include userEmail in the skill.level_up event payload.');
+  // Lấy email từ auth-service qua internal HTTP call
+  const userProfile = await userEmailResolver.resolve(payload.userId);
+  if (!userProfile) {
+    console.warn(`[NOTIF] skill.level_up — Cannot resolve email for userId: ${payload.userId}. Skipping email.`);
     return;
   }
 
@@ -33,7 +35,7 @@ export async function handleSkillLevelUp(payload: SkillLevelUpPayload): Promise<
   );
 
   await mailerService.sendEmail({
-    to: payload.userEmail,
+    to: userProfile.email,
     subject,
     html,
   });

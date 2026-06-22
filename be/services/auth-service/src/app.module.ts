@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { AuthController } from './interfaces/rest/auth.controller';
+import { InternalController } from './interfaces/rest/internal.controller';
 import { UserDomainService } from './domain/services/user-domain.service';
 import { PasswordHasher } from './infrastructure/security/password-hasher';
 import { JwtProvider } from './infrastructure/security/jwt-provider';
@@ -69,6 +70,10 @@ export function createApp() {
   });
 
   app.use('/api/auth', authController.router);
+
+  // Route nội bộ — chỉ accessible từ trong Docker network, KHÔNG qua Nginx
+  const internalController = new InternalController(userRepository);
+  app.use('/internal', internalController.router);
 
   app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 

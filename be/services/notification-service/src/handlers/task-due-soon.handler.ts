@@ -1,40 +1,34 @@
 import { mailerService } from '../mailer/mailer.service';
 import { taskReminderTemplate } from '../mailer/templates/task-reminder';
+import { userEmailResolver } from '../resolvers/user-email.resolver';
 
 export interface TaskDueSoonPayload {
   taskId: string;
   userId: string;
   title: string;
   dueDate: string;
-  userEmail?: string; // Optional: nếu task-service có thể cung cấp
   firedAt: string;
 }
 
 /**
  * Xử lý event task.due_soon:
- * → Gửi email nhắc nhở deadline tới user.
- *
- * NOTE: Hiện tại task-service không lưu email trong task payload.
- * Cần user email để gửi. Có 2 cách:
- *   1. task-service include email trong event payload (recommended)
- *   2. notification-service gọi auth-service để lấy email (HTTP call)
- *
- * Hiện implement theo cách 1: task-service cần truyền userEmail.
- * Nếu không có email, chỉ log warning.
+ * 1. Gọi auth-service để lấy email của user theo userId
+ * 2. Gửi email nhắc nhở deadline
  */
 export async function handleTaskDueSoon(payload: TaskDueSoonPayload): Promise<void> {
   console.log(`[NOTIF] Handling task.due_soon: "${payload.title}" (taskId: ${payload.taskId})`);
 
-  if (!payload.userEmail) {
-    console.warn(`[NOTIF] task.due_soon — missing userEmail in payload. Cannot send email for task ${payload.taskId}.`);
-    console.warn('[NOTIF] Tip: Update task-service to include userEmail in the task.due_soon event payload.');
+  // Lấy email từ auth-service qua internal HTTP call
+  const userProfile = await userEmailResolver.resolve(payload.userId);
+  if (!userProfile) {
+    console.warn(`[NOTIF] task.due_soon — Cannot resolve email for userId: ${payload.userId}. Skipping email.`);
     return;
   }
 
   const { subject, html } = taskReminderTemplate(payload.title, payload.dueDate, payload.taskId);
 
   await mailerService.sendEmail({
-    to: payload.userEmail,
+    to: userProfile.email,
     subject,
     html,
   });
