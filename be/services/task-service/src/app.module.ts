@@ -37,6 +37,7 @@ import {
   createTaskWriteLimiter,
 } from './infrastructure/middleware/rate-limit.middleware';
 import { RabbitMQPublisher } from './infrastructure/messaging/rabbitmq.publisher';
+import { OutboxWorker } from './infrastructure/messaging/outbox.worker';
 
 export function createApp() {
   const app = express();
@@ -52,20 +53,24 @@ export function createApp() {
   const tokenStore = new TokenStore();
   const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
 
-  // RabbitMQ Publisher (fire-and-forget, non-blocking)
+  // RabbitMQ Publisher
   const rabbitmqUrl = process.env.RABBITMQ_URL || 'amqp://guest:guest@localhost:5672';
   const rabbitPublisher = new RabbitMQPublisher(rabbitmqUrl);
+
+  // Start Outbox Worker
+  const outboxWorker = new OutboxWorker(rabbitPublisher);
+  outboxWorker.start();
 
   // Mediator setup
   const mediator = new Mediator();
 
   // Notification Queue setup (phải trước handlers để inject vào DeleteTaskHandler)
-  const queueService = new NotificationQueueService(redisUrl, mediator, rabbitPublisher);
+  const queueService = new NotificationQueueService(redisUrl, mediator);
   new DelayedNotificationHandler(mediator, queueService);
 
   // Task handlers
-  mediator.register(CreateTaskCommand, new CreateTaskHandler(repo, domain, mediator, skillRepo, rabbitPublisher));
-  mediator.register(UpdateTaskCommand, new UpdateTaskHandler(repo, domain, mediator, skillRepo, rabbitPublisher));
+  mediator.register(CreateTaskCommand, new CreateTaskHandler(repo, domain, mediator, skillRepo));
+  mediator.register(UpdateTaskCommand, new UpdateTaskHandler(repo, domain, mediator, skillRepo));
   mediator.register(DeleteTaskCommand, new DeleteTaskHandler(repo, skillRepo, queueService));
   mediator.register(ListTasksQuery, new ListTasksHandler(repo));
 

@@ -30,8 +30,14 @@ export class InMemoryUserRepository extends UserRepository {
       user.refreshToken,
       user.refreshTokenExpiresAt
     );
-    this.users.set(id, nextUser);
+    this.users.set(nextUser.id, nextUser);
     return nextUser;
+  }
+
+  async createWithOutboxEvent(user: User, event: { routingKey: string; payload: any }): Promise<User> {
+    const created = await this.create(user);
+    // In memory doesn't persist outbox events to a db, but we implement the signature
+    return created;
   }
 
   async update(user: User): Promise<User> {

@@ -2,7 +2,7 @@ import { Queue, Worker, Job } from 'bullmq';
 import { Mediator } from '../../shared/mediator';
 import { TaskScheduledEvent } from '../../application/events/task-events';
 import { UUID } from '../../shared';
-import { RabbitMQPublisher } from '../messaging/rabbitmq.publisher';
+import { prisma } from '../persistence/prisma/prisma.client';
 
 export interface DelayedNotificationJob {
   taskId: UUID;
@@ -17,8 +17,7 @@ export class NotificationQueueService {
 
   constructor(
     private readonly redisUrl: string, 
-    private readonly mediator: Mediator,
-    private readonly rabbitPublisher?: RabbitMQPublisher
+    private readonly mediator: Mediator
   ) {
     const connection = { url: this.redisUrl };
     
@@ -35,13 +34,18 @@ export class NotificationQueueService {
         job.data.dueDate
       ));
 
-      // 2. Publish task.due_soon event lên RabbitMQ → notification-service sẽ gửi email
-      void this.rabbitPublisher?.publish('task.due_soon', {
-        taskId: job.data.taskId,
-        userId: job.data.userId,
-        title: job.data.title,
-        dueDate: job.data.dueDate,
-        firedAt: new Date().toISOString(),
+      // 2. Write task.due_soon event to Outbox table
+      await prisma.outboxEvent.create({
+        data: {
+          routingKey: 'task.due_soon',
+          payload: {
+            taskId: job.data.taskId,
+            userId: job.data.userId,
+            title: job.data.title,
+            dueDate: job.data.dueDate,
+            firedAt: new Date().toISOString(),
+          }
+        }
       });
     }, { connection });
 

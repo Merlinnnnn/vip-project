@@ -47,6 +47,30 @@ export class PrismaUserRepository extends UserRepository {
     return mapToDomain(created);
   }
 
+  async createWithOutboxEvent(user: User, event: { routingKey: string; payload: any }): Promise<User> {
+    const created = await prisma.$transaction(async (tx) => {
+      const u = await tx.user.create({
+        data: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          passwordHash: user.passwordHash,
+          createdAt: user.createdAt,
+          refreshToken: user.refreshToken,
+          refreshTokenExpiresAt: user.refreshTokenExpiresAt
+        }
+      });
+      await tx.outboxEvent.create({
+        data: {
+          routingKey: event.routingKey,
+          payload: event.payload
+        }
+      });
+      return u;
+    });
+    return mapToDomain(created);
+  }
+
   async update(user: User): Promise<User> {
     const updated = await prisma.user.update({
       where: { id: user.id },

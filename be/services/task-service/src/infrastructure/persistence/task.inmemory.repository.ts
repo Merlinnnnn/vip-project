@@ -47,10 +47,18 @@ export class InMemoryTaskRepository extends TaskRepository {
     return toSave;
   }
 
+  async createWithOutbox(task: Task): Promise<Task> {
+    return this.create(task);
+  }
+
   async update(task: Task): Promise<Task> {
     this.tasks.set(task.id, task);
     await this.normalize(task.userId);
     return task;
+  }
+
+  async updateWithOutbox(task: Task, previousSkillId: UUID | null, previousMinutes: number): Promise<Task> {
+    return this.update(task);
   }
 
   async delete(id: UUID, userId: UUID): Promise<void> {

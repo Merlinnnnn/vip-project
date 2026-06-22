@@ -5,5 +5,6 @@ export abstract class UserRepository {
   abstract findById(id: string): Promise<User | null>;
   abstract findByRefreshToken(token: string): Promise<User | null>;
   abstract create(user: User): Promise<User>;
+  abstract createWithOutboxEvent(user: User, event: { routingKey: string; payload: any }): Promise<User>;
   abstract update(user: User): Promise<User>;
 }

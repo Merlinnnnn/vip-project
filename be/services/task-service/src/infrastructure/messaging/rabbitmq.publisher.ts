@@ -61,15 +61,20 @@ export class RabbitMQPublisher {
       }
 
       const buffer = Buffer.from(JSON.stringify(payload));
-      this.ch!.publish(EXCHANGE_NAME, routingKey, buffer, {
+      const success = this.ch!.publish(EXCHANGE_NAME, routingKey, buffer, {
         persistent: true,
         contentType: 'application/json',
         timestamp: Date.now(),
       });
 
+      if (!success) {
+        throw new Error('Channel publish returned false (buffer full/channel closed)');
+      }
+
       console.log(`[RABBITMQ-PUB][TASK] Published event: ${routingKey}`, payload);
     } catch (err) {
       console.warn(`[RABBITMQ-PUB][TASK] Failed to publish event "${routingKey}":`, (err as Error).message);
+      throw err;
     }
   }
 

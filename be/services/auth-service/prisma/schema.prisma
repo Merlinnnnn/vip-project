@@ -16,3 +16,18 @@ model User {
   refreshToken String?  @unique
   refreshTokenExpiresAt DateTime?
 }
+
+/// Outbox Pattern — lưu events cần publish lên RabbitMQ.
+/// Worker sẽ poll bảng này mỗi 5s và publish events chưa gửi.
+model OutboxEvent {
+  id          String   @id @default(uuid())
+  routingKey  String                        // vd: 'user.registered'
+  payload     Json                          // nội dung event
+  status      String   @default("pending")  // 'pending' | 'sent' | 'failed'
+  attempts    Int      @default(0)          // số lần thử gửi
+  createdAt   DateTime @default(now())
+  processedAt DateTime?                     // thời điểm gửi thành công
+
+  @@index([status, createdAt])              // index để query pending events nhanh
+}
+

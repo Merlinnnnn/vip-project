@@ -61,16 +61,20 @@ export class RabbitMQPublisher {
       }
 
       const buffer = Buffer.from(JSON.stringify(payload));
-      this.ch!.publish(EXCHANGE_NAME, routingKey, buffer, {
+      const success = this.ch!.publish(EXCHANGE_NAME, routingKey, buffer, {
         persistent: true,          // Tin nhắn tồn tại dù broker restart
         contentType: 'application/json',
         timestamp: Date.now(),
       });
 
+      if (!success) {
+        throw new Error('Channel publish returned false (buffer full/channel closed)');
+      }
+
       console.log(`[RABBITMQ-PUB][AUTH] Published event: ${routingKey}`, payload);
     } catch (err) {
-      // Non-fatal: chỉ warn để không làm fail flow chính
       console.warn(`[RABBITMQ-PUB][AUTH] Failed to publish event "${routingKey}":`, (err as Error).message);
+      throw err;
     }
   }
 

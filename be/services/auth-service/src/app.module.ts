@@ -18,6 +18,7 @@ import {
   createRefreshTokenLimiter,
 } from './infrastructure/middleware/rate-limit.middleware';
 import { RabbitMQPublisher } from './infrastructure/messaging/rabbitmq.publisher';
+import { OutboxWorker } from './infrastructure/messaging/outbox.worker';
 
 export function createApp() {
   const app = express();
@@ -39,16 +40,20 @@ export function createApp() {
   const jwtProvider = new JwtProvider();
   const userDomainService = new UserDomainService();
 
-  // RabbitMQ Publisher (fire-and-forget, non-blocking)
+  // RabbitMQ Publisher
   const rabbitmqUrl = process.env.RABBITMQ_URL || 'amqp://guest:guest@localhost:5672';
   const rabbitPublisher = new RabbitMQPublisher(rabbitmqUrl);
+
+  // Start Outbox Worker
+  const outboxWorker = new OutboxWorker(rabbitPublisher);
+  outboxWorker.start();
 
   // Mediator setup
   const mediator = new Mediator();
 
   mediator.register(
     RegisterCommand,
-    new RegisterHandler(userRepository, userDomainService, passwordHasher, jwtProvider, rabbitPublisher)
+    new RegisterHandler(userRepository, userDomainService, passwordHasher, jwtProvider)
   );
   mediator.register(
     LoginCommand,
