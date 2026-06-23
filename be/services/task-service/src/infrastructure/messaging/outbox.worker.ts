@@ -2,31 +2,54 @@ import { prisma } from '../persistence/prisma/prisma.client';
 import { RabbitMQPublisher } from './rabbitmq.publisher';
 
 export class OutboxWorker {
-  private intervalId: NodeJS.Timeout | null = null;
+  private pollIntervalId: NodeJS.Timeout | null = null;
+  private cleanupIntervalId: NodeJS.Timeout | null = null;
   private isProcessing = false;
+
+  // Cleanup chạy mỗi 1 giờ
+  private static readonly CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
 
   constructor(
     private readonly publisher: RabbitMQPublisher,
     private readonly pollIntervalMs: number = 5000,
-    private readonly maxAttempts: number = 5
+    private readonly maxAttempts: number = 5,
+    private readonly cleanupRetentionDays: number = 7
   ) {}
 
   start(): void {
-    if (this.intervalId) return;
+    if (this.pollIntervalId) return;
     console.log('[OutboxWorker][TASK] Starting worker...');
-    this.intervalId = setInterval(() => {
+
+    // Poll pending events
+    this.pollIntervalId = setInterval(() => {
       this.processEvents().catch((err) => {
         console.error('[OutboxWorker][TASK] Error processing outbox events:', err);
       });
     }, this.pollIntervalMs);
+
+    // Cleanup old sent/failed events
+    this.cleanupIntervalId = setInterval(() => {
+      this.cleanupOldEvents().catch((err) => {
+        console.error('[OutboxWorker][TASK] Error cleaning up old outbox events:', err);
+      });
+    }, OutboxWorker.CLEANUP_INTERVAL_MS);
+
+    // Run cleanup once on startup
+    this.cleanupOldEvents().catch((err) => {
+      console.error('[OutboxWorker][TASK] Error during initial cleanup:', err);
+    });
   }
 
   stop(): void {
-    if (this.intervalId) {
-      clearInterval(this.intervalId);
-      this.intervalId = null;
-      console.log('[OutboxWorker][TASK] Worker stopped.');
+    if (this.pollIntervalId) {
+      clearInterval(this.pollIntervalId);
+      this.pollIntervalId = null;
     }
+    if (this.cleanupIntervalId) {
+      clearInterval(this.cleanupIntervalId);
+      this.cleanupIntervalId = null;
+    }
+    console.log('[OutboxWorker][TASK] Worker stopped.');
   }
 
   private async processEvents(): Promise<void> {
@@ -78,6 +101,27 @@ export class OutboxWorker {
       }
     } finally {
       this.isProcessing = false;
+    }
+  }
+
+  /**
+   * Xóa các event đã gửi thành công ('sent') hoặc thất bại vĩnh viễn ('failed')
+   * mà đã cũ hơn số ngày cấu hình (mặc định: 7 ngày).
+   */
+  private async cleanupOldEvents(): Promise<void> {
+    const cutoffDate = new Date(Date.now() - this.cleanupRetentionDays * 24 * 60 * 60 * 1000);
+
+    const result = await prisma.outboxEvent.deleteMany({
+      where: {
+        status: { in: ['sent', 'failed'] },
+        createdAt: { lt: cutoffDate },
+      },
+    });
+
+    if (result.count > 0) {
+      console.log(
+        `[OutboxWorker][TASK] Cleanup: deleted ${result.count} old events (older than ${this.cleanupRetentionDays} days).`
+      );
     }
   }
 }
