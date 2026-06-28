@@ -23,7 +23,7 @@ const Sidebar = ({ isCollapsed, onToggle, widthClass }: Props) => {
 
   return (
     <aside
-      className={`hidden md:fixed md:inset-y-0 md:left-0 ${widthClass} flex-shrink-0 flex-col overflow-y-auto bg-slate-900 border-r border-slate-800 text-white transition-all duration-200 md:flex dark:bg-slate-950`}
+      className={`hidden md:fixed md:inset-y-0 md:left-0 ${widthClass} flex-shrink-0 flex-col overflow-y-auto bg-[var(--surface-sidebar)] border-r border-[var(--border-default)] text-white transition-all duration-200 md:flex`}
     >
       <div className="flex items-center justify-between px-3 py-4">
         {!isCollapsed && (
@@ -56,8 +56,8 @@ const Sidebar = ({ isCollapsed, onToggle, widthClass }: Props) => {
                 "flex items-center gap-3 rounded-lg py-2 text-sm font-medium transition",
                 isCollapsed ? "justify-center" : "px-3",
                 isActive
-                  ? "bg-white/10 text-white"
-                  : "text-slate-200 hover:bg-white/5 hover:text-white",
+                  ? "bg-[var(--accent-primary)] text-white shadow-[var(--shadow-sm)]"
+                  : "text-slate-400 hover:bg-white/5 hover:text-white",
               ].join(" ")
             }
           >

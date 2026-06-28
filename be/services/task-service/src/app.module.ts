@@ -16,7 +16,9 @@ import {
   DeleteTaskCommand,
   DeleteTaskHandler,
   ListTasksQuery,
-  ListTasksHandler
+  ListTasksHandler,
+  GetTaskQuery,
+  GetTaskHandler
 } from './application/handlers/tasks.handler';
 import { NotificationQueueService } from './infrastructure/queue/bullmq.infrastructure';
 import { DelayedNotificationHandler } from './application/handlers/delayed-notification.handler';
@@ -73,6 +75,7 @@ export function createApp() {
   mediator.register(UpdateTaskCommand, new UpdateTaskHandler(repo, domain, mediator, skillRepo));
   mediator.register(DeleteTaskCommand, new DeleteTaskHandler(repo, skillRepo, queueService));
   mediator.register(ListTasksQuery, new ListTasksHandler(repo));
+  mediator.register(GetTaskQuery, new GetTaskHandler(repo));
 
   // Skill handlers
   mediator.register(CreateSkillCommand, new CreateSkillHandler(skillRepo));

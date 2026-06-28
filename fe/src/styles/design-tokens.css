@@ -1,0 +1,102 @@
+/* ═══════════════════════════════════════════════════════════
+   Design Tokens — Single source of truth for theming.
+   Import this BEFORE globals.css in main.tsx.
+   All pages should use these variables instead of hardcoded colors.
+   ═══════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Surface ─────────────────────────────────────────── */
+  --surface-base: #f8fafc;          /* page background */
+  --surface-primary: #ffffff;        /* cards, panels */
+  --surface-secondary: #f1f5f9;      /* subtle sections */
+  --surface-elevated: #ffffff;       /* modals, popovers */
+  --surface-sidebar: #0f172a;        /* sidebar bg */
+
+  /* ── Text ────────────────────────────────────────────── */
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --text-inverse: #f8fafc;
+
+  /* ── Accent / Brand ──────────────────────────────────── */
+  --accent-primary: #6366f1;         /* indigo-500 */
+  --accent-primary-light: #a5b4fc;   /* indigo-300 */
+  --accent-primary-hover: #818cf8;   /* indigo-400 */
+  --accent-primary-bg: #eef2ff;      /* indigo-50 */
+  --accent-primary-ring: #c7d2fe;    /* indigo-200 */
+
+  --accent-success: #10b981;         /* emerald-500 */
+  --accent-success-hover: #34d399;   /* emerald-400 */
+  --accent-success-bg: #ecfdf5;      /* emerald-50 */
+
+  --accent-danger: #ef4444;          /* red-500 */
+  --accent-danger-hover: #dc2626;    /* red-600 */
+  --accent-danger-bg: #fef2f2;       /* rose-50 */
+  --accent-danger-text: #b91c1c;     /* red-700 */
+  --accent-danger-ring: #fecaca;     /* rose-200 */
+
+  --accent-warning: #f59e0b;         /* amber-500 */
+  --accent-warning-bg: #fffbeb;      /* amber-50 */
+  --accent-warning-text: #b45309;    /* amber-700 */
+  --accent-warning-ring: #fde68a;    /* amber-200 */
+
+  /* ── Borders ─────────────────────────────────────────── */
+  --border-default: #e2e8f0;         /* slate-200 */
+  --border-subtle: #f1f5f9;          /* slate-100 */
+  --border-strong: #cbd5e1;          /* slate-300 */
+
+  /* ── Shadows ─────────────────────────────────────────── */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+
+  /* ── Radius ──────────────────────────────────────────── */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-full: 9999px;
+
+  /* ── Layout ──────────────────────────────────────────── */
+  --header-height: 56px;
+  --page-padding-x: 24px;
+  --page-padding-y: 20px;
+
+  /* ── Transitions ─────────────────────────────────────── */
+  --transition-fast: 150ms ease;
+  --transition-normal: 200ms ease;
+  --transition-slow: 300ms ease;
+}
+
+/* ── Dark Mode Overrides ───────────────────────────────── */
+.dark {
+  --surface-base: #020617;
+  --surface-primary: #0f172a;
+  --surface-secondary: #1e293b;
+  --surface-elevated: #1e293b;
+  --surface-sidebar: #020617;
+
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --text-inverse: #0f172a;
+
+  --accent-primary-bg: rgba(99, 102, 241, 0.1);
+  --accent-primary-ring: rgba(99, 102, 241, 0.3);
+  --accent-success-bg: rgba(16, 185, 129, 0.1);
+  --accent-danger-bg: rgba(239, 68, 68, 0.1);
+  --accent-danger-text: #fca5a5;
+  --accent-danger-ring: rgba(239, 68, 68, 0.3);
+  --accent-warning-bg: rgba(245, 158, 11, 0.1);
+  --accent-warning-text: #fcd34d;
+  --accent-warning-ring: rgba(245, 158, 11, 0.3);
+
+  --border-default: #1e293b;
+  --border-subtle: #0f172a;
+  --border-strong: #334155;
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
+}

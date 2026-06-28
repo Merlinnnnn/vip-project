@@ -4,6 +4,7 @@ import { BrowserRouter } from "react-router-dom";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import App from "./App";
+import "./styles/design-tokens.css";
 import "./styles/globals.css";
 import "./lib/i18n";
 import { AuthProvider } from "./context/AuthContext";

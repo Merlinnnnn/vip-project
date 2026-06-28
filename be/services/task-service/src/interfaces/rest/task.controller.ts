@@ -1,11 +1,12 @@
 import { Router, type Request, type Response, type NextFunction, type RequestHandler } from 'express';
 import { Mediator } from '../../shared/mediator';
 import { TokenStore } from '../../infrastructure/cache/token.store';
-import { 
-  CreateTaskCommand, 
-  UpdateTaskCommand, 
-  DeleteTaskCommand, 
-  ListTasksQuery 
+import {
+  CreateTaskCommand,
+  UpdateTaskCommand,
+  DeleteTaskCommand,
+  ListTasksQuery,
+  GetTaskQuery
 } from '../../application/handlers/tasks.handler';
 
 export class TaskController {
@@ -18,6 +19,7 @@ export class TaskController {
   ) {
     this.router = Router();
     this.router.get('/', this.getAll);
+    this.router.get('/:id', this.getById);
     // Apply write limiter chỉ với các mutation operations
     this.router.post('/', ...(writeLimiter ? [writeLimiter] : []), this.create);
     this.router.put('/:id', ...(writeLimiter ? [writeLimiter] : []), this.update);
@@ -34,6 +36,17 @@ export class TaskController {
       next(err);
     }
   };
+
+  private getById = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = await this.getUserId(req, res);
+      if (!userId) return;
+      const task = await this.mediator.query(new GetTaskQuery(userId, req.params.id));
+      res.json(task);
+    } catch (error) {
+      next(error);
+    }
+  }
 
   private create = async (req: Request, res: Response, next: NextFunction) => {
     try {

@@ -13,19 +13,23 @@ import { NotificationQueueService } from '../../infrastructure/queue/bullmq.infr
 
 // Commands & Queries
 export class CreateTaskCommand implements IRequest<Task> {
-  constructor(public readonly userId: UUID, public readonly dto: CreateTaskDto) {}
+  constructor(public readonly userId: UUID, public readonly dto: CreateTaskDto) { }
 }
 
 export class UpdateTaskCommand implements IRequest<Task> {
-  constructor(public readonly userId: UUID, public readonly id: UUID, public readonly dto: UpdateTaskDto) {}
+  constructor(public readonly userId: UUID, public readonly id: UUID, public readonly dto: UpdateTaskDto) { }
 }
 
 export class DeleteTaskCommand implements IRequest<void> {
-  constructor(public readonly userId: UUID, public readonly id: UUID) {}
+  constructor(public readonly userId: UUID, public readonly id: UUID) { }
 }
 
 export class ListTasksQuery implements IRequest<Task[]> {
-  constructor(public readonly userId: UUID) {}
+  constructor(public readonly userId: UUID) { }
+}
+
+export class GetTaskQuery implements IRequest<Task> {
+  constructor(public readonly userId: UUID, public readonly id: UUID) { }
 }
 
 // Helper: so sánh level trước và sau khi cập nhật minutes
@@ -40,7 +44,7 @@ export class CreateTaskHandler implements IRequestHandler<CreateTaskCommand, Tas
     private readonly domain: TaskDomainService,
     private readonly mediator: Mediator,
     private readonly skills?: SkillRepository
-  ) {}
+  ) { }
 
   async handle(command: CreateTaskCommand): Promise<Task> {
     const { userId, dto } = command;
@@ -75,7 +79,7 @@ export class CreateTaskHandler implements IRequestHandler<CreateTaskCommand, Tas
     this.domain.ensureValidStatus(task.status);
     this.domain.enforceStatusForDueDate(task);
     const created = await this.repo.createWithOutbox(task);
-    
+
     // Publish scheduling event
     void this.mediator.publish(new TaskScheduledEvent(created.id, created.userId!, created.title, created.dueDate.toISOString()));
 
@@ -89,7 +93,7 @@ export class UpdateTaskHandler implements IRequestHandler<UpdateTaskCommand, Tas
     private readonly domain: TaskDomainService,
     private readonly mediator: Mediator,
     private readonly skills?: SkillRepository
-  ) {}
+  ) { }
 
   async handle(command: UpdateTaskCommand): Promise<Task> {
     const { userId, id, dto } = command;
@@ -129,7 +133,7 @@ export class DeleteTaskHandler implements IRequestHandler<DeleteTaskCommand, voi
     private readonly repo: TaskRepository,
     private readonly skills?: SkillRepository,
     private readonly queue?: NotificationQueueService
-  ) {}
+  ) { }
 
   async handle(command: DeleteTaskCommand): Promise<void> {
     const { userId, id } = command;
@@ -147,9 +151,21 @@ export class DeleteTaskHandler implements IRequestHandler<DeleteTaskCommand, voi
 }
 
 export class ListTasksHandler implements IRequestHandler<ListTasksQuery, Task[]> {
-  constructor(private readonly repo: TaskRepository) {}
+  constructor(private readonly repo: TaskRepository) { }
 
   async handle(query: ListTasksQuery): Promise<Task[]> {
     return this.repo.findAllByUser(query.userId);
+  }
+}
+
+export class GetTaskHandler implements IRequestHandler<GetTaskQuery, Task> {
+  constructor(private readonly repo: TaskRepository) { }
+
+  async handle(query: GetTaskQuery): Promise<Task> {
+    const task = await this.repo.findById(query.id, query.userId);
+    if (!task) {
+      throw new Error('Task not found');
+    }
+    return task;
   }
 }
