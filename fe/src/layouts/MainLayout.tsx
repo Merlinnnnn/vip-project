@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
+import { Toaster } from "react-hot-toast";
 import Header from "../components/layout/Header";
 import Sidebar from "../components/layout/Sidebar";
 import { useNotifications } from "../hooks/useNotifications";
@@ -33,6 +34,7 @@ const MainLayout = ({ children }: Props) => {
 
   return (
     <div className={`flex h-screen overflow-hidden bg-[var(--surface-base)] text-[var(--text-primary)] transition-colors duration-300`}>
+      <Toaster position="top-right" />
       <Sidebar
         isCollapsed={isSidebarCollapsed}
         onToggle={() => setIsSidebarCollapsed((prev) => !prev)}

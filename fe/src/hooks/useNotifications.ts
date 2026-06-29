@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import toast from "react-hot-toast";
 import { useAuth } from "../context/AuthContext";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:9999";
@@ -43,12 +44,11 @@ export const useNotifications = () => {
 
           if (payload.type === "TASK_SCHEDULED") {
             const data = payload.data as { title?: string; dueDate?: string };
-            console.info(
-              `[Notification] Task "${data.title}" scheduled for ${
-                data.dueDate ? new Date(data.dueDate).toLocaleDateString() : "N/A"
-              }`,
-            );
-            // TODO: Hiện toast notification thay vì console.info
+            const message = `Task "${data.title}" scheduled for ${
+              data.dueDate ? new Date(data.dueDate).toLocaleDateString() : "N/A"
+            }`;
+            console.info(`[Notification] ${message}`);
+            toast(message, { icon: "🔔" });
           }
         } catch {
           // Bỏ qua event không parse được
