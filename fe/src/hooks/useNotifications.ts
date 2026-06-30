@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import toast from "react-hot-toast";
 import { useAuth } from "../context/AuthContext";
+import { useNotificationStore } from "../store/useNotificationStore";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:9999";
 const MAX_RETRIES = 5;
@@ -49,6 +50,12 @@ export const useNotifications = () => {
             }`;
             console.info(`[Notification] ${message}`);
             toast(message, { icon: "🔔" });
+            
+            // Add to store
+            useNotificationStore.getState().addNotification({
+              message,
+              type: "TASK_SCHEDULED",
+            });
           }
         } catch {
           // Bỏ qua event không parse được
