@@ -3,6 +3,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useTranslation } from "react-i18next";
 import ThemeToggle from "../ui/ThemeToggle";
 import LanguageSelector from "../ui/LanguageSelector";
+import NotificationCenter from "../ui/NotificationCenter";
 
 type Props = {
   isSidebarCollapsed: boolean;
@@ -27,6 +28,7 @@ const Header: FC<Props> = ({ isSidebarCollapsed }) => {
       </div>
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
+          <NotificationCenter />
           <ThemeToggle />
           <LanguageSelector />
         </div>

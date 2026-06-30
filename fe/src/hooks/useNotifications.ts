@@ -16,13 +16,16 @@ const RETRY_DELAY_MS = 3000;
  * - Dọn sạch console.log debug
  */
 export const useNotifications = () => {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const retryCount = useRef(0);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const esRef = useRef<EventSource | null>(null);
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id || !token) return;
+    
+    // Fetch initial notifications
+    useNotificationStore.getState().fetchNotifications(token);
 
     let cancelled = false;
 
@@ -44,7 +47,7 @@ export const useNotifications = () => {
           const payload = JSON.parse(event.data) as { type: string; data: unknown };
 
           if (payload.type === "TASK_SCHEDULED") {
-            const data = payload.data as { title?: string; dueDate?: string };
+            const data = payload.data as { title?: string; dueDate?: string; notificationId?: string; userId?: string };
             const message = `Task "${data.title}" scheduled for ${
               data.dueDate ? new Date(data.dueDate).toLocaleDateString() : "N/A"
             }`;
@@ -52,10 +55,16 @@ export const useNotifications = () => {
             toast(message, { icon: "🔔" });
             
             // Add to store
-            useNotificationStore.getState().addNotification({
-              message,
-              type: "TASK_SCHEDULED",
-            });
+            if (data.notificationId && data.userId) {
+              useNotificationStore.getState().addNotification({
+                id: data.notificationId,
+                userId: data.userId,
+                message,
+                type: "TASK_SCHEDULED",
+                isRead: false,
+                createdAt: new Date().toISOString(),
+              });
+            }
           }
         } catch {
           // Bỏ qua event không parse được

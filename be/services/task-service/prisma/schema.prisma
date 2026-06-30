@@ -55,3 +55,14 @@ model OutboxEvent {
 
   @@index([status, createdAt])              // index để query pending events nhanh
 }
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  type      String
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}

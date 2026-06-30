@@ -1,53 +1,57 @@
 import { create } from "zustand";
-
-export interface AppNotification {
-  id: string;
-  message: string;
-  type?: string;
-  read: boolean;
-  createdAt: number;
-}
+import { notificationsApi, type AppNotification } from "../lib/notificationsApi";
 
 interface NotificationState {
   notifications: AppNotification[];
-  addNotification: (notification: Omit<AppNotification, "id" | "read" | "createdAt">) => void;
-  markAsRead: (id: string) => void;
-  markAllAsRead: () => void;
-  removeNotification: (id: string) => void;
-  clearAll: () => void;
+  isLoading: boolean;
+  fetchNotifications: (token: string) => Promise<void>;
+  addNotification: (notification: AppNotification) => void;
+  markAsRead: (id: string, token: string) => Promise<void>;
+  markAllAsRead: (token: string) => Promise<void>;
+  clearAll: () => void; // local only
 }
 
 export const useNotificationStore = create<NotificationState>((set) => ({
   notifications: [],
+  isLoading: false,
+  fetchNotifications: async (token: string) => {
+    try {
+      set({ isLoading: true });
+      const data = await notificationsApi.getNotifications(token);
+      set({ notifications: data, isLoading: false });
+    } catch (error) {
+      console.error("Failed to fetch notifications:", error);
+      set({ isLoading: false });
+    }
+  },
   addNotification: (notification) => {
     set((state) => ({
-      notifications: [
-        {
-          ...notification,
-          id: crypto.randomUUID(),
-          read: false,
-          createdAt: Date.now(),
-        },
-        ...state.notifications,
-      ],
+      notifications: [notification, ...state.notifications],
     }));
   },
-  markAsRead: (id) => {
-    set((state) => ({
-      notifications: state.notifications.map((n) =>
-        n.id === id ? { ...n, read: true } : n
-      ),
-    }));
+  markAsRead: async (id: string, token: string) => {
+    try {
+      // Optimistic update
+      set((state) => ({
+        notifications: state.notifications.map((n) =>
+          n.id === id ? { ...n, isRead: true } : n
+        ),
+      }));
+      await notificationsApi.markAsRead(id, token);
+    } catch (error) {
+      console.error("Failed to mark notification as read:", error);
+      // Revert in case of failure could be handled here
+    }
   },
-  markAllAsRead: () => {
-    set((state) => ({
-      notifications: state.notifications.map((n) => ({ ...n, read: true })),
-    }));
-  },
-  removeNotification: (id) => {
-    set((state) => ({
-      notifications: state.notifications.filter((n) => n.id !== id),
-    }));
+  markAllAsRead: async (token: string) => {
+    try {
+      set((state) => ({
+        notifications: state.notifications.map((n) => ({ ...n, isRead: true })),
+      }));
+      await notificationsApi.markAllAsRead(token);
+    } catch (error) {
+      console.error("Failed to mark all as read:", error);
+    }
   },
   clearAll: () => {
     set({ notifications: [] });

@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { Mediator } from '../../shared/mediator';
 import { TaskScheduledEvent } from '../../application/events/task-events';
 import { TokenStore } from '../../infrastructure/cache/token.store';
+import { prisma } from '../../infrastructure/persistence/prisma/prisma.client';
 
 export class NotificationController {
   public readonly router = Router();
@@ -12,14 +13,101 @@ export class NotificationController {
     private readonly tokenStore?: TokenStore
   ) {
     this.router.get('/stream', this.stream.bind(this));
+    this.router.get('/', this.getNotifications.bind(this));
+    this.router.put('/read-all', this.markAllAsRead.bind(this));
+    this.router.put('/:id/read', this.markAsRead.bind(this));
 
     // Subscribe to events
-    this.mediator.subscribe(TaskScheduledEvent, (event) => {
-      this.broadcast({
-        type: 'TASK_SCHEDULED',
-        data: event
-      });
+    this.mediator.subscribe(TaskScheduledEvent, async (event) => {
+      // 1. Save to DB
+      try {
+        const userId = event.userId;
+        const message = `Task "${event.title}" scheduled for ${
+          event.dueDate ? new Date(event.dueDate).toLocaleDateString() : 'N/A'
+        }`;
+        
+        const notif = await prisma.notification.create({
+          data: {
+            userId,
+            type: 'TASK_SCHEDULED',
+            message
+          }
+        });
+
+        // 2. Broadcast via SSE
+        this.broadcast({
+          type: 'TASK_SCHEDULED',
+          data: {
+            ...event,
+            notificationId: notif.id
+          }
+        });
+      } catch (error) {
+        console.error('[NOTIFICATION] Failed to save notification to DB', error);
+      }
     });
+  }
+
+  private async getUserIdFromReq(req: Request): Promise<string | null> {
+    const bearerHeader = req.header('authorization')?.replace(/^Bearer\s*/i, '').trim();
+    if (!bearerHeader || !this.tokenStore) return null;
+    return await this.tokenStore.getUserIdByAccessToken(bearerHeader);
+  }
+
+  private async getNotifications(req: Request, res: Response) {
+    const userId = await this.getUserIdFromReq(req);
+    if (!userId) {
+       res.status(401).json({ message: 'Unauthorized' });
+       return;
+    }
+
+    try {
+      const notifications = await prisma.notification.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        take: 50
+      });
+      res.json(notifications);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  }
+
+  private async markAllAsRead(req: Request, res: Response) {
+    const userId = await this.getUserIdFromReq(req);
+    if (!userId) {
+       res.status(401).json({ message: 'Unauthorized' });
+       return;
+    }
+
+    try {
+      await prisma.notification.updateMany({
+        where: { userId, isRead: false },
+        data: { isRead: true }
+      });
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  }
+
+  private async markAsRead(req: Request, res: Response) {
+    const userId = await this.getUserIdFromReq(req);
+    if (!userId) {
+       res.status(401).json({ message: 'Unauthorized' });
+       return;
+    }
+
+    try {
+      const id = req.params.id;
+      await prisma.notification.updateMany({
+        where: { id, userId }, // Ensure user owns it
+        data: { isRead: true }
+      });
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
   }
 
   private async stream(req: Request, res: Response) {
