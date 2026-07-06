@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import PageTitle from "../../components/ui/PageTitle";
 import { useAuth } from "../../context/AuthContext";
 
@@ -13,6 +14,7 @@ type SaveStatus = "idle" | "saving" | "saved";
  */
 const SettingsPage = () => {
   const { user } = useAuth();
+  const { t, i18n } = useTranslation();
 
   const [displayName, setDisplayName] = useState(
     () => localStorage.getItem("settings.displayName") ?? "",
@@ -47,18 +49,22 @@ const SettingsPage = () => {
     setTimeout(() => setSaveStatus("idle"), 3000);
   };
 
+  const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    i18n.changeLanguage(e.target.value);
+  };
+
   return (
     <div className="space-y-4">
       <PageTitle
-        title="Cài đặt"
-        subtitle="Cập nhật thông tin hiển thị và tùy chọn thông báo."
+        title={t("settingsPage.title")}
+        subtitle={t("settingsPage.subtitle")}
       />
 
       {/* Account info — readonly, từ AuthContext */}
       <div className="rounded-xl border border-slate-200 bg-slate-50 px-5 py-4 text-sm text-slate-600">
-        <span className="font-medium text-slate-800">Tài khoản: </span>
+        <span className="font-medium text-slate-800">{t("settingsPage.account")}: </span>
         {user?.email ?? "—"}
-        <span className="ml-3 text-xs text-slate-400">(Email không thể thay đổi)</span>
+        <span className="ml-3 text-xs text-slate-400">({t("settingsPage.emailCannotChange")})</span>
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -68,12 +74,12 @@ const SettingsPage = () => {
               className="mb-1 block text-sm font-medium text-slate-700"
               htmlFor="display-name"
             >
-              Tên hiển thị
+              {t("settingsPage.displayName")}
             </label>
             <input
               id="display-name"
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-900 focus:outline-none"
-              placeholder="Tên của bạn"
+              placeholder={t("settingsPage.displayName")}
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
             />
@@ -84,7 +90,7 @@ const SettingsPage = () => {
               className="mb-1 block text-sm font-medium text-slate-700"
               htmlFor="timezone"
             >
-              Múi giờ
+              {t("settingsPage.timezone")}
             </label>
             <select
               id="timezone"
@@ -99,8 +105,26 @@ const SettingsPage = () => {
           </div>
 
           <div className="md:col-span-2">
+            <label
+              className="mb-1 block text-sm font-medium text-slate-700"
+              htmlFor="language"
+            >
+              {t("settingsPage.language")}
+            </label>
+            <select
+              id="language"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-900 focus:outline-none"
+              value={i18n.language}
+              onChange={handleLanguageChange}
+            >
+              <option value="vi">{t("common.language.vi")}</option>
+              <option value="en">{t("common.language.en")}</option>
+            </select>
+          </div>
+
+          <div className="md:col-span-2">
             <label className="mb-2 block text-sm font-medium text-slate-700">
-              Thông báo
+              {t("settingsPage.notifications")}
             </label>
             <div className="flex flex-col gap-3 rounded-lg border border-slate-200 p-4">
               <label className="flex items-center gap-3 text-sm text-slate-700 cursor-pointer">
@@ -110,7 +134,7 @@ const SettingsPage = () => {
                   checked={notifyDaily}
                   onChange={(e) => setNotifyDaily(e.target.checked)}
                 />
-                Nhắc nhở hàng ngày
+                {t("settingsPage.notifyDaily")}
               </label>
               <label className="flex items-center gap-3 text-sm text-slate-700 cursor-pointer">
                 <input
@@ -119,7 +143,7 @@ const SettingsPage = () => {
                   checked={notifyWeekly}
                   onChange={(e) => setNotifyWeekly(e.target.checked)}
                 />
-                Tổng kết hàng tuần
+                {t("settingsPage.notifyWeekly")}
               </label>
               <label className="flex items-center gap-3 text-sm text-slate-700 cursor-pointer">
                 <input
@@ -128,14 +152,14 @@ const SettingsPage = () => {
                   checked={notifyFocus}
                   onChange={(e) => setNotifyFocus(e.target.checked)}
                 />
-                Cảnh báo chế độ focus
+                {t("settingsPage.notifyFocus")}
               </label>
             </div>
           </div>
 
           <div className="md:col-span-2 flex items-center justify-between">
             <p className="text-xs text-slate-400">
-              * Hiện lưu local — sẽ đồng bộ server khi BE có endpoint update profile.
+              {t("settingsPage.localSaveNote")}
             </p>
             <button
               type="submit"
@@ -143,10 +167,10 @@ const SettingsPage = () => {
               className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-70"
             >
               {saveStatus === "saving"
-                ? "Đang lưu..."
+                ? t("settingsPage.saving")
                 : saveStatus === "saved"
-                ? "✓ Đã lưu!"
-                : "Lưu cài đặt"}
+                ? t("settingsPage.saved")
+                : t("settingsPage.save")}
             </button>
           </div>
         </form>

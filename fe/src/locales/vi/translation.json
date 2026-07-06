@@ -19,5 +19,22 @@
     "welcome": "Chào mừng trở lại",
     "overview": "Tổng quan tiến độ của bạn",
     "stats": "Thống kê"
+  },
+  "settingsPage": {
+    "title": "Cài đặt",
+    "subtitle": "Cập nhật thông tin hiển thị và tùy chọn thông báo.",
+    "account": "Tài khoản",
+    "emailCannotChange": "Email không thể thay đổi",
+    "displayName": "Tên hiển thị",
+    "timezone": "Múi giờ",
+    "language": "Ngôn ngữ",
+    "notifications": "Thông báo",
+    "notifyDaily": "Nhắc nhở hàng ngày",
+    "notifyWeekly": "Tổng kết hàng tuần",
+    "notifyFocus": "Cảnh báo chế độ focus",
+    "localSaveNote": "* Hiện lưu local — sẽ đồng bộ server khi BE có endpoint update profile.",
+    "saving": "Đang lưu...",
+    "saved": "✓ Đã lưu!",
+    "save": "Lưu cài đặt"
   }
 }

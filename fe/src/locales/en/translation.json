@@ -19,5 +19,22 @@
     "welcome": "Welcome back",
     "overview": "Overview of your progress",
     "stats": "Statistics"
+  },
+  "settingsPage": {
+    "title": "Settings",
+    "subtitle": "Update your display information and notification preferences.",
+    "account": "Account",
+    "emailCannotChange": "Email cannot be changed",
+    "displayName": "Display Name",
+    "timezone": "Timezone",
+    "language": "Language",
+    "notifications": "Notifications",
+    "notifyDaily": "Daily Reminder",
+    "notifyWeekly": "Weekly Summary",
+    "notifyFocus": "Focus Mode Alerts",
+    "localSaveNote": "* Currently saved locally - will sync with server when backend is ready.",
+    "saving": "Saving...",
+    "saved": "✓ Saved!",
+    "save": "Save Settings"
   }
 }
