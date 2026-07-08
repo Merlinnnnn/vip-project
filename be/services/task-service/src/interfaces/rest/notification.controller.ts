@@ -3,6 +3,7 @@ import { Mediator } from '../../shared/mediator';
 import { TaskScheduledEvent } from '../../application/events/task-events';
 import { TokenStore } from '../../infrastructure/cache/token.store';
 import { prisma } from '../../infrastructure/persistence/prisma/prisma.client';
+import { sseBroadcaster } from '../../infrastructure/cache/sse-broadcaster';
 
 export class NotificationController {
   public readonly router = Router();
@@ -17,7 +18,7 @@ export class NotificationController {
     this.router.put('/read-all', this.markAllAsRead.bind(this));
     this.router.put('/:id/read', this.markAsRead.bind(this));
 
-    // Subscribe to events
+    // Subscribe to in-process events (task created/updated trên instance hiện tại)
     this.mediator.subscribe(TaskScheduledEvent, async (event) => {
       // 1. Save to DB
       try {
@@ -34,8 +35,9 @@ export class NotificationController {
           }
         });
 
-        // 2. Broadcast via SSE
-        this.broadcast({
+        // 2. Publish qua Redis Pub/Sub → TẤT CẢ instances nhận được
+        //    (thay vì chỉ broadcast local in-memory)
+        await sseBroadcaster.publish({
           type: 'TASK_SCHEDULED',
           data: {
             ...event,
@@ -45,6 +47,26 @@ export class NotificationController {
       } catch (error) {
         console.error('[NOTIFICATION] Failed to save notification to DB', error);
       }
+    });
+
+    // Khởi tạo Redis subscriber — nhận messages từ TẤT CẢ instances
+    this.initRedisSub();
+  }
+
+  /**
+   * Khởi tạo Redis Pub/Sub subscriber.
+   * Khi nhận message từ bất kỳ instance nào, broadcast tới local SSE clients.
+   */
+  private initRedisSub(): void {
+    sseBroadcaster.start((rawMessage: string) => {
+      try {
+        const message = JSON.parse(rawMessage);
+        this.broadcastLocal(message);
+      } catch (err) {
+        console.error('[NOTIFICATION] Failed to parse Redis message:', err);
+      }
+    }).catch((err) => {
+      console.error('[NOTIFICATION] Failed to start SSE broadcaster:', err);
     });
   }
 
@@ -150,7 +172,11 @@ export class NotificationController {
     });
   }
 
-  private broadcast(message: any) {
+  /**
+   * Broadcast tới LOCAL SSE clients trên instance hiện tại.
+   * Được gọi khi nhận message từ Redis Pub/Sub (gốc từ bất kỳ instance nào).
+   */
+  private broadcastLocal(message: any) {
     const eventUserId = message.data?.userId;
     const data = `data: ${JSON.stringify(message)}\n\n`;
 
