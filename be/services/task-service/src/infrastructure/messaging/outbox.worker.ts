@@ -57,11 +57,24 @@ export class OutboxWorker {
     this.isProcessing = true;
 
     try {
-      // Find pending outbox events
-      const events = await prisma.outboxEvent.findMany({
-        where: { status: 'pending' },
-        orderBy: { createdAt: 'asc' },
-        take: 10, // Process in batches
+      // Dùng transaction + FOR UPDATE SKIP LOCKED để chỉ 1 worker pick mỗi event.
+      // Khi worker A lock event, worker B/C sẽ SKIP nó → không duplicate publish.
+      const events = await prisma.$transaction(async (tx) => {
+        const locked = await tx.$queryRawUnsafe<Array<{
+          id: string;
+          routingKey: string;
+          payload: any;
+          status: string;
+          attempts: number;
+        }>>(
+          `SELECT id, "routingKey", payload, status, attempts
+           FROM "OutboxEvent"
+           WHERE status = 'pending'
+           ORDER BY "createdAt" ASC
+           LIMIT 10
+           FOR UPDATE SKIP LOCKED`
+        );
+        return locked;
       });
 
       if (events.length === 0) {
