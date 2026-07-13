@@ -40,11 +40,15 @@ import {
 } from './infrastructure/middleware/rate-limit.middleware';
 import { RabbitMQPublisher } from './infrastructure/messaging/rabbitmq.publisher';
 import { OutboxWorker } from './infrastructure/messaging/outbox.worker';
+import { setupSwagger } from './config/swagger.config';
 
 export function createApp() {
   const app = express();
   app.use(cors());
   app.use(express.json());
+
+  // Swagger UI — available at /api-docs
+  setupSwagger(app);
 
   // Tin tưởng IP từ Nginx proxy (để rate-limit theo IP thật)
   app.set('trust proxy', 1);

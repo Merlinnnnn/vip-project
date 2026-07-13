@@ -9,6 +9,137 @@ import {
   GetUserStatsQuery
 } from '../../application/handlers/skills.handler';
 
+/**
+ * @swagger
+ * tags:
+ *   name: Skills
+ *   description: Skill tracking & statistics
+ */
+
+/**
+ * @swagger
+ * /api/skills:
+ *   get:
+ *     summary: Lấy danh sách skills của user
+ *     tags: [Skills]
+ *     security:
+ *       - BearerAuth: []
+ *       - UserIdHeader: []
+ *     responses:
+ *       200:
+ *         description: Danh sách skills
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Skill'
+ *       401:
+ *         description: Unauthorized
+ */
+
+/**
+ * @swagger
+ * /api/skills/stats:
+ *   get:
+ *     summary: Thống kê tổng hợp skills của user
+ *     tags: [Skills]
+ *     security:
+ *       - BearerAuth: []
+ *       - UserIdHeader: []
+ *     responses:
+ *       200:
+ *         description: Dữ liệu thống kê
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *       401:
+ *         description: Unauthorized
+ */
+
+/**
+ * @swagger
+ * /api/skills:
+ *   post:
+ *     summary: Tạo skill mới
+ *     tags: [Skills]
+ *     security:
+ *       - BearerAuth: []
+ *       - UserIdHeader: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/CreateSkillRequest'
+ *     responses:
+ *       201:
+ *         description: Skill vừa tạo
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Skill'
+ *       400:
+ *         description: Dữ liệu không hợp lệ
+ */
+
+/**
+ * @swagger
+ * /api/skills/{id}:
+ *   put:
+ *     summary: Cập nhật skill
+ *     tags: [Skills]
+ *     security:
+ *       - BearerAuth: []
+ *       - UserIdHeader: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/UpdateSkillRequest'
+ *     responses:
+ *       200:
+ *         description: Skill đã cập nhật
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Skill'
+ *       404:
+ *         description: Skill không tồn tại
+ */
+
+/**
+ * @swagger
+ * /api/skills/{id}:
+ *   delete:
+ *     summary: Xóa skill
+ *     tags: [Skills]
+ *     security:
+ *       - BearerAuth: []
+ *       - UserIdHeader: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       204:
+ *         description: Xóa thành công
+ *       404:
+ *         description: Skill không tồn tại
+ */
+
 export class SkillController {
   public readonly router: Router;
 

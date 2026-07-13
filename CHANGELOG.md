@@ -4,6 +4,58 @@
 
 ---
 
+## 2026-07-13
+
+### 🟢 feat (swagger): add unified Swagger UI & OpenAPI docs for all backend services
+
+**Nội dung:**
+- Tích hợp **Swagger** (`swagger-ui-express` + `swagger-jsdoc`) vào project.
+- Mỗi service generate OpenAPI 3.0 spec từ JSDoc `@swagger` comments, serve tại `/api-docs.json`.
+- **Unified Swagger UI** serve tại dev-proxy gateway (`http://localhost:9999/api-docs`) với **dropdown chọn service**.
+
+**Kiến trúc:**
+```
+┌─────────────────────────────────────────────────┐
+│  http://localhost:9999/api-docs                  │
+│  ┌───────────────────────────────────────┐       │
+│  │  Dropdown: [🔐 Auth] [📋 Task]       │       │
+│  └───────────────────────────────────────┘       │
+│         ↓ fetch spec                             │
+│  :3000/api-docs.json    :3001/api-docs.json      │
+│  (auth-service)         (task-service)            │
+└─────────────────────────────────────────────────┘
+```
+
+**Chi tiết endpoints:**
+- **🔐 Auth Service** — 5 endpoints:
+  `POST /register`, `POST /login`, `GET /me`, `POST /refresh`, `POST /logout`
+- **📋 Task Service** — 14 endpoints:
+  - Tasks: `GET /`, `GET /:id`, `POST /`, `PUT /:id`, `DELETE /:id`
+  - Skills: `GET /`, `GET /stats`, `POST /`, `PUT /:id`, `DELETE /:id`
+  - Notifications: `GET /`, `GET /stream` (SSE), `PUT /read-all`, `PUT /:id/read`
+
+**Công dụng:**
+- 1 URL duy nhất (`localhost:9999/api-docs`) để explore & test tất cả APIs.
+- Dropdown chọn service — không cần nhớ port từng service.
+- API documentation đồng bộ với code (JSDoc-based).
+- Raw JSON spec tại `/api-docs.json` trên mỗi service cho code generation.
+
+**Files thay đổi:**
+- `be/dev-proxy.js` — Thêm unified Swagger UI route `/api-docs`
+- `be/services/auth-service/src/config/swagger.config.ts` — **[NEW]** OpenAPI spec + schemas
+- `be/services/task-service/src/config/swagger.config.ts` — **[NEW]** OpenAPI spec + schemas
+- `be/services/auth-service/src/app.module.ts` — Mount `setupSwagger(app)`
+- `be/services/task-service/src/app.module.ts` — Mount `setupSwagger(app)`
+- `be/services/auth-service/src/interfaces/rest/auth.controller.ts` — JSDoc `@swagger` annotations
+- `be/services/task-service/src/interfaces/rest/task.controller.ts` — JSDoc `@swagger` annotations
+- `be/services/task-service/src/interfaces/rest/skill.controller.ts` — JSDoc `@swagger` annotations
+- `be/services/task-service/src/interfaces/rest/notification.controller.ts` — JSDoc `@swagger` annotations
+- `package.json` (root) — Thêm `swagger-ui-express` cho dev-proxy
+- `be/services/auth-service/package.json` — Thêm `swagger-jsdoc`, `swagger-ui-express`, types
+- `be/services/task-service/package.json` — Thêm `swagger-jsdoc`, `swagger-ui-express`, types
+
+---
+
 ## 2026-07-08
 
 ### 🔴 fix (notification): use Redis Pub/Sub for SSE broadcast across replicas

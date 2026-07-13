@@ -9,9 +9,12 @@
     "dev:all": "npm-run-all --parallel dev:auth dev:task dev:gateway"
   },
   "devDependencies": {
-    "npm-run-all": "^4.1.5",
+    "cors": "^2.8.5",
     "express": "^4.19.2",
     "http-proxy-middleware": "^2.0.6",
-    "cors": "^2.8.5"
+    "npm-run-all": "^4.1.5"
+  },
+  "dependencies": {
+    "swagger-ui-express": "^5.0.1"
   }
 }

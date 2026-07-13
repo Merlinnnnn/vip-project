@@ -9,6 +9,145 @@ import {
   GetTaskQuery
 } from '../../application/handlers/tasks.handler';
 
+/**
+ * @swagger
+ * tags:
+ *   name: Tasks
+ *   description: Task CRUD operations
+ */
+
+/**
+ * @swagger
+ * /api/tasks:
+ *   get:
+ *     summary: Lấy danh sách tasks của user
+ *     tags: [Tasks]
+ *     security:
+ *       - BearerAuth: []
+ *       - UserIdHeader: []
+ *     responses:
+ *       200:
+ *         description: Danh sách tasks
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Task'
+ *       401:
+ *         description: Unauthorized
+ */
+
+/**
+ * @swagger
+ * /api/tasks/{id}:
+ *   get:
+ *     summary: Lấy chi tiết một task
+ *     tags: [Tasks]
+ *     security:
+ *       - BearerAuth: []
+ *       - UserIdHeader: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Task ID
+ *     responses:
+ *       200:
+ *         description: Chi tiết task
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Task'
+ *       404:
+ *         description: Task không tồn tại
+ */
+
+/**
+ * @swagger
+ * /api/tasks:
+ *   post:
+ *     summary: Tạo task mới
+ *     tags: [Tasks]
+ *     security:
+ *       - BearerAuth: []
+ *       - UserIdHeader: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/CreateTaskRequest'
+ *     responses:
+ *       201:
+ *         description: Task vừa tạo
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Task'
+ *       400:
+ *         description: Dữ liệu không hợp lệ
+ */
+
+/**
+ * @swagger
+ * /api/tasks/{id}:
+ *   put:
+ *     summary: Cập nhật task
+ *     tags: [Tasks]
+ *     security:
+ *       - BearerAuth: []
+ *       - UserIdHeader: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/UpdateTaskRequest'
+ *     responses:
+ *       200:
+ *         description: Task đã cập nhật
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Task'
+ *       404:
+ *         description: Task không tồn tại
+ */
+
+/**
+ * @swagger
+ * /api/tasks/{id}:
+ *   delete:
+ *     summary: Xóa task
+ *     tags: [Tasks]
+ *     security:
+ *       - BearerAuth: []
+ *       - UserIdHeader: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       204:
+ *         description: Xóa thành công
+ *       404:
+ *         description: Task không tồn tại
+ */
+
 export class TaskController {
   public readonly router: Router;
 

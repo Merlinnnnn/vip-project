@@ -5,6 +5,108 @@ import { TokenStore } from '../../infrastructure/cache/token.store';
 import { prisma } from '../../infrastructure/persistence/prisma/prisma.client';
 import { sseBroadcaster } from '../../infrastructure/cache/sse-broadcaster';
 
+/**
+ * @swagger
+ * tags:
+ *   name: Notifications
+ *   description: Notification management & SSE streaming
+ */
+
+/**
+ * @swagger
+ * /api/notifications:
+ *   get:
+ *     summary: Lấy danh sách notifications (50 mới nhất)
+ *     tags: [Notifications]
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Danh sách notifications
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Notification'
+ *       401:
+ *         description: Unauthorized
+ */
+
+/**
+ * @swagger
+ * /api/notifications/stream:
+ *   get:
+ *     summary: SSE stream — nhận notification realtime
+ *     tags: [Notifications]
+ *     description: |
+ *       Server-Sent Events endpoint. Truyền access token qua `Authorization: Bearer <token>` hoặc query param `?token=<token>`.
+ *       Connection sẽ giữ mở vô thời hạn cho tới khi client đóng.
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: token
+ *         schema:
+ *           type: string
+ *         description: Access token (alternative to Authorization header)
+ *     responses:
+ *       200:
+ *         description: SSE stream (text/event-stream)
+ *         content:
+ *           text/event-stream:
+ *             schema:
+ *               type: string
+ *       401:
+ *         description: Token không hợp lệ
+ */
+
+/**
+ * @swagger
+ * /api/notifications/read-all:
+ *   put:
+ *     summary: Đánh dấu tất cả notifications đã đọc
+ *     tags: [Notifications]
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessResponse'
+ *       401:
+ *         description: Unauthorized
+ */
+
+/**
+ * @swagger
+ * /api/notifications/{id}/read:
+ *   put:
+ *     summary: Đánh dấu một notification đã đọc
+ *     tags: [Notifications]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Notification ID
+ *     responses:
+ *       200:
+ *         description: Thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessResponse'
+ *       401:
+ *         description: Unauthorized
+ */
+
 export class NotificationController {
   public readonly router = Router();
   private clients: { userId: string; res: Response }[] = [];
