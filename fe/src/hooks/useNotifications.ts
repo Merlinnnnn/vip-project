@@ -32,9 +32,9 @@ export const useNotifications = () => {
     const connect = () => {
       if (cancelled || retryCount.current >= MAX_RETRIES) return;
 
-      // Truyền userId qua query param — workaround vì EventSource không hỗ trợ custom headers
-      // TODO: Khi BE hỗ trợ HTTP-only cookie auth, bỏ query param này
-      const url = `${API_URL}/api/notifications/stream?userId=${encodeURIComponent(user.id)}`;
+      // EventSource không hỗ trợ custom headers → truyền token qua query param
+      // BE sẽ verify access token từ ?token= (fallback khi không có Authorization header)
+      const url = `${API_URL}/api/notifications/stream?userId=${encodeURIComponent(user.id)}&token=${encodeURIComponent(token!)}`;
       const eventSource = new EventSource(url);
       esRef.current = eventSource;
 
@@ -95,5 +95,5 @@ export const useNotifications = () => {
       esRef.current?.close();
       esRef.current = null;
     };
-  }, [user?.id]);
+  }, [user?.id, token]);
 };
