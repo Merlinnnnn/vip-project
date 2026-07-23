@@ -1,6 +1,5 @@
 import { Router, type Request, type Response, type NextFunction, type RequestHandler } from 'express';
 import { Mediator } from '../../shared/mediator';
-import { TokenStore } from '../../infrastructure/cache/token.store';
 import {
   CreateSkillCommand,
   ListSkillsQuery,
@@ -145,10 +144,14 @@ export class SkillController {
 
   constructor(
     private readonly mediator: Mediator,
-    private readonly tokenStore?: TokenStore,
-    private readonly writeLimiter?: RequestHandler
+    authMiddleware: RequestHandler,
+    writeLimiter?: RequestHandler
   ) {
     this.router = Router();
+
+    // Auth middleware applied to all routes
+    this.router.use(authMiddleware);
+
     this.router.get('/', this.getAll);
     this.router.get('/stats', this.getStats);
     // Apply write limiter chỉ với các mutation operations
@@ -159,8 +162,7 @@ export class SkillController {
 
   private getAll = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userId = await this.getUserId(req, res);
-      if (!userId) return;
+      const userId: string = res.locals.userId;
       const skills = await this.mediator.query(new ListSkillsQuery(userId));
       res.json(skills);
     } catch (err) {
@@ -170,8 +172,7 @@ export class SkillController {
 
   private getStats = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userId = await this.getUserId(req, res);
-      if (!userId) return;
+      const userId: string = res.locals.userId;
       const stats = await this.mediator.query(new GetUserStatsQuery(userId));
       res.json(stats);
     } catch (err) {
@@ -181,8 +182,7 @@ export class SkillController {
 
   private create = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userId = await this.getUserId(req, res);
-      if (!userId) return;
+      const userId: string = res.locals.userId;
       const skill = await this.mediator.send(new CreateSkillCommand(userId, {
         name: req.body.name,
         targetMinutes: req.body.targetMinutes
@@ -195,8 +195,7 @@ export class SkillController {
 
   private update = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userId = await this.getUserId(req, res);
-      if (!userId) return;
+      const userId: string = res.locals.userId;
       const skill = await this.mediator.send(new UpdateSkillCommand(userId, req.params.id, {
         name: req.body.name,
         targetMinutes: req.body.targetMinutes
@@ -209,28 +208,12 @@ export class SkillController {
 
   private remove = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userId = await this.getUserId(req, res);
-      if (!userId) return;
+      const userId: string = res.locals.userId;
       await this.mediator.send(new DeleteSkillCommand(userId, req.params.id));
       res.status(204).send();
     } catch (err) {
       next(err);
     }
   };
-
-  private async getUserId(req: Request, res: Response): Promise<string | undefined> {
-    const userId = req.header('x-user-id');
-    if (userId) return userId;
-
-    const bearer = req.header('authorization')?.replace(/^Bearer\s*/i, '').trim();
-    if (bearer && this.tokenStore) {
-      const resolved = await this.tokenStore.getUserIdByAccessToken(bearer);
-      if (resolved) return resolved;
-      res.status(401).json({ message: 'Invalid or expired bearer token' });
-      return;
-    }
-
-    res.status(400).json({ message: 'Missing x-user-id or bearer token' });
-    return;
-  }
 }
+

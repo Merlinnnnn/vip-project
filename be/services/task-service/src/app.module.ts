@@ -38,9 +38,11 @@ import {
   createGlobalApiLimiter,
   createTaskWriteLimiter,
 } from './infrastructure/middleware/rate-limit.middleware';
+import { createAuthMiddleware } from './infrastructure/middleware/auth.middleware';
 import { RabbitMQPublisher } from './infrastructure/messaging/rabbitmq.publisher';
 import { OutboxWorker } from './infrastructure/messaging/outbox.worker';
 import { setupSwagger } from './config/swagger.config';
+import { envConfig } from './config/env.config';
 
 export function createApp() {
   const app = express();
@@ -53,14 +55,14 @@ export function createApp() {
   // Tin tưởng IP từ Nginx proxy (để rate-limit theo IP thật)
   app.set('trust proxy', 1);
 
+  const { redisUrl, rabbitmqUrl } = envConfig();
+
   const repo = new PrismaTaskRepository();
   const skillRepo = new PrismaSkillRepository();
   const domain = new TaskDomainService();
   const tokenStore = new TokenStore();
-  const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
 
   // RabbitMQ Publisher
-  const rabbitmqUrl = process.env.RABBITMQ_URL || 'amqp://guest:guest@localhost:5672';
   const rabbitPublisher = new RabbitMQPublisher(rabbitmqUrl);
 
   // Start Outbox Worker
@@ -88,15 +90,16 @@ export function createApp() {
   mediator.register(ListSkillsQuery, new ListSkillsHandler(skillRepo));
   mediator.register(GetUserStatsQuery, new GetUserStatsHandler(skillRepo));
 
-  // ── Rate Limiters ─────────────────────────────────────
+  // ── Middleware ──────────────────────────────────────────
   const globalLimiter = createGlobalApiLimiter();
   const writeLimiter = createTaskWriteLimiter();
+  const authMiddleware = createAuthMiddleware(tokenStore);
 
   // Apply global limiter cho toàn bộ API
   app.use(globalLimiter);
 
-  const tasksController = new TaskController(mediator, tokenStore, writeLimiter);
-  const skillsController = new SkillController(mediator, tokenStore, writeLimiter);
+  const tasksController = new TaskController(mediator, authMiddleware, writeLimiter);
+  const skillsController = new SkillController(mediator, authMiddleware, writeLimiter);
   const notificationController = new NotificationController(mediator, tokenStore);
   app.use('/api/tasks', tasksController.router);
   app.use('/api/skills', skillsController.router);
@@ -113,3 +116,4 @@ export function createApp() {
 
   return app;
 }
+
