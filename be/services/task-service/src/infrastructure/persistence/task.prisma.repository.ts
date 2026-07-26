@@ -1,9 +1,13 @@
 import { Task } from '../../domain/entities/task.entity';
 import { TaskRepository } from '../../domain/repositories/task.repository';
+import { TaskDomainService } from '../../domain/services/task-domain.service';
 import type { UUID } from '../../shared';
 import { prisma } from './prisma/prisma.client';
 import { appCache, AppCache } from '../cache/app.cache';
 import { Skill } from '../../domain/entities/skill.entity';
+
+/** Shared domain service instance for status enforcement */
+const domainService = new TaskDomainService();
 
 function mapToDomain(task: any): Task {
   const domain = new Task(
@@ -19,21 +23,10 @@ function mapToDomain(task: any): Task {
     task.createdAt,
     task.updatedAt
   );
-  enforceDueDateStatus(domain);
+  domainService.enforceStatusForDueDate(domain);
   return domain;
 }
 
-function enforceDueDateStatus(task: Task) {
-  if (task.status === 'done') return task;
-  const now = Date.now();
-  const due = new Date(task.dueDate).getTime();
-  if (due < now) {
-    task.status = 'overdue';
-  } else if (task.status === 'overdue') {
-    task.status = 'todo';
-  }
-  return task;
-}
 
 export class PrismaTaskRepository extends TaskRepository {
   async findAllByUser(userId: UUID): Promise<Task[]> {

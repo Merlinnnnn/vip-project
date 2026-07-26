@@ -6,7 +6,6 @@ import { TaskDomainService } from '../../domain/services/task-domain.service';
 import { CreateTaskDto } from '../dto/create-task.dto';
 import { UpdateTaskDto } from '../dto/update-task.dto';
 import { Task } from '../../domain/entities/task.entity';
-import { Skill } from '../../domain/entities/skill.entity';
 import { UUID } from '../../shared';
 import { randomUUID } from 'crypto';
 import { NotificationQueueService } from '../../infrastructure/queue/bullmq.infrastructure';
@@ -32,12 +31,8 @@ export class GetTaskQuery implements IRequest<Task> {
   constructor(public readonly userId: UUID, public readonly id: UUID) { }
 }
 
-// Helper: so sánh level trước và sau khi cập nhật minutes
-function didLevelUp(before: Skill, after: Skill): boolean {
-  return after.level > before.level;
-}
-
 // Handlers
+
 export class CreateTaskHandler implements IRequestHandler<CreateTaskCommand, Task> {
   constructor(
     private readonly repo: TaskRepository,
