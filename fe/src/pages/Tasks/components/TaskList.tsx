@@ -28,11 +28,11 @@ const TaskList = ({ tasks, onDelete, skillNames }: Props) => {
               {task.description ? (
                 <p className="text-xs text-slate-600">{task.description}</p>
               ) : null}
-              {task.skillId || task.learningMinutes ? (
+              {task.skillId || task.estimatedMinutes ? (
                 <p className="text-[11px] uppercase tracking-wide text-slate-500">
                   {task.skillId ? `Skill: ${skillNames?.[task.skillId] ?? task.skillId}` : null}
-                  {task.skillId && task.learningMinutes ? " • " : null}
-                  {task.learningMinutes ? `${task.learningMinutes} phút` : null}
+                  {task.skillId && task.estimatedMinutes ? " • " : null}
+                  {task.estimatedMinutes ? `${task.estimatedMinutes} phút` : null}
                 </p>
               ) : null}
               {task.createdAt ? (

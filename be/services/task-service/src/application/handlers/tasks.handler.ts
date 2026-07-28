@@ -48,9 +48,9 @@ export class CreateTaskHandler implements IRequestHandler<CreateTaskCommand, Tas
       throw new Error('dueDate is required');
     }
     const dueDate = this.domain.ensureDueDate(dto.dueDate);
-    const learningMinutes = dto.learningMinutes === undefined ? 0 : Number(dto.learningMinutes);
-    if (Number.isNaN(learningMinutes) || learningMinutes < 0) {
-      throw new Error('learningMinutes cannot be negative');
+    const estimatedMinutes = dto.estimatedMinutes === undefined ? 0 : Number(dto.estimatedMinutes);
+    if (Number.isNaN(estimatedMinutes) || estimatedMinutes < 0) {
+      throw new Error('estimatedMinutes cannot be negative');
     }
     const skillId = dto.skillId ?? null;
     if (skillId && this.skills) {
@@ -67,7 +67,7 @@ export class CreateTaskHandler implements IRequestHandler<CreateTaskCommand, Tas
       dto.description ?? null,
       status,
       dto.priority ?? Date.now(),
-      learningMinutes,
+      estimatedMinutes,
       dueDate,
       skillId
     );
@@ -97,23 +97,23 @@ export class UpdateTaskHandler implements IRequestHandler<UpdateTaskCommand, Tas
       throw new Error('Task not found');
     }
     const previousDueDateString = task.dueDate;
-    const previousSkillId = task.skillId ?? null;
-    const previousMinutes = task.learningMinutes ?? 0;
-    const parsedLearningMinutes =
-      dto.learningMinutes === undefined ? undefined : Number(dto.learningMinutes);
-    if (parsedLearningMinutes !== undefined && (Number.isNaN(parsedLearningMinutes) || parsedLearningMinutes < 0)) {
-      throw new Error('learningMinutes cannot be negative');
+    const parsedEstimatedMinutes =
+      dto.estimatedMinutes === undefined ? undefined : Number(dto.estimatedMinutes);
+    if (parsedEstimatedMinutes !== undefined && (Number.isNaN(parsedEstimatedMinutes) || parsedEstimatedMinutes < 0)) {
+      throw new Error('estimatedMinutes cannot be negative');
     }
     const parsedDueDate = dto.dueDate === undefined ? undefined : this.domain.ensureDueDate(dto.dueDate);
-    const nextSkillId = dto.skillId ?? previousSkillId;
+    const nextSkillId = dto.skillId ?? task.skillId ?? null;
     if (nextSkillId && this.skills) {
       const skill = await this.skills.findById(nextSkillId, userId);
       if (!skill) {
         throw new Error('Skill not found for this user');
       }
     }
-    this.domain.updateTask(task, { ...dto, learningMinutes: parsedLearningMinutes, dueDate: parsedDueDate });
-    const updated = await this.repo.updateWithOutbox(task, previousSkillId, previousMinutes);
+    this.domain.updateTask(task, { ...dto, estimatedMinutes: parsedEstimatedMinutes, dueDate: parsedDueDate });
+    // NOTE: No longer adjusting Skill.totalMinutes here.
+    // Skill time is accumulated ONLY via WorkSession stop.
+    const updated = await this.repo.updateWithOutbox(task, null, 0);
 
     if (updated.dueDate.getTime() !== new Date(previousDueDateString).getTime()) {
       void this.mediator.publish(new TaskScheduledEvent(updated.id, updated.userId!, updated.title, updated.dueDate.toISOString()));
@@ -126,7 +126,7 @@ export class UpdateTaskHandler implements IRequestHandler<UpdateTaskCommand, Tas
 export class DeleteTaskHandler implements IRequestHandler<DeleteTaskCommand, void> {
   constructor(
     private readonly repo: TaskRepository,
-    private readonly skills?: SkillRepository,
+    private readonly _skills?: SkillRepository,
     private readonly queue?: NotificationQueueService
   ) { }
 
@@ -139,9 +139,8 @@ export class DeleteTaskHandler implements IRequestHandler<DeleteTaskCommand, voi
     await this.repo.delete(id, userId);
     // Cancel pending BullMQ notification để tránh ghost notification
     await this.queue?.cancelNotification(id);
-    if (this.skills && task.skillId && task.learningMinutes) {
-      await this.skills.incrementTotalMinutes(task.skillId, userId, -task.learningMinutes);
-    }
+    // NOTE: No longer subtracting estimatedMinutes from Skill.
+    // WorkSession records are preserved (taskId set to null via onDelete: SetNull).
   }
 }
 

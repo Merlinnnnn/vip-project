@@ -9,7 +9,7 @@ export type TaskInput = {
   status?: TaskStatus;
   priority?: number;
   dueDate?: string;
-  learningMinutes?: number;
+  estimatedMinutes?: number;
   skillId?: string | null;
 };
 

@@ -196,7 +196,7 @@ export class TaskController {
         description: req.body.description,
         status: req.body.status,
         priority: req.body.priority,
-        learningMinutes: req.body.learningMinutes,
+        estimatedMinutes: req.body.estimatedMinutes,
         dueDate: req.body.dueDate,
         skillId: req.body.skillId
       }));

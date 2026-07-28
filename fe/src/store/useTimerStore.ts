@@ -25,6 +25,8 @@ type TimerState = {
   requiredSeconds: number;
   activeTaskId: string | null;
   activeTaskTitle: string | null;
+  activeSessionId: string | null;
+  sessionStartedAt: string | null;
   progressByTask: Record<string, number>;
   lastCompletedTaskId: string | null;
   settings: TimerSettings;
@@ -40,6 +42,8 @@ type TimerState = {
   clearTask: () => void;
   resetCurrent: () => void;
   clearCompletion: () => void;
+  setActiveSession: (sessionId: string | null, startedAt?: string | null) => void;
+  syncElapsed: (serverElapsed: number) => void;
   tick: () => void;
 };
 
@@ -64,6 +68,8 @@ export const useTimerStore = create<TimerState>((set, get) => ({
   requiredSeconds: 0,
   activeTaskId: null,
   activeTaskTitle: null,
+  activeSessionId: null,
+  sessionStartedAt: null,
   progressByTask: {},
   lastCompletedTaskId: null,
   settings: initialSettings,
@@ -219,6 +225,16 @@ export const useTimerStore = create<TimerState>((set, get) => ({
   },
 
   clearCompletion: () => set({ lastCompletedTaskId: null }),
+
+  setActiveSession: (sessionId, startedAt) => set({
+    activeSessionId: sessionId,
+    sessionStartedAt: startedAt || null,
+  }),
+
+  syncElapsed: (serverElapsed) => set((state) => ({
+    elapsed: serverElapsed,
+    progressByTask: state.activeTaskId ? { ...state.progressByTask, [state.activeTaskId]: serverElapsed } : state.progressByTask,
+  })),
 
   tick: () => {
     const state = get();

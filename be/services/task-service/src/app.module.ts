@@ -3,10 +3,12 @@ import cors from 'cors';
 import { TaskDomainService } from './domain/services/task-domain.service';
 import { PrismaTaskRepository } from './infrastructure/persistence/task.prisma.repository';
 import { PrismaSkillRepository } from './infrastructure/persistence/skill.prisma.repository';
+import { PrismaWorkSessionRepository } from './infrastructure/persistence/work-session.prisma.repository';
 import { TaskController } from './interfaces/rest/task.controller';
 import { TokenStore } from './infrastructure/cache/token.store';
 import { SkillController } from './interfaces/rest/skill.controller';
 import { NotificationController } from './interfaces/rest/notification.controller';
+import { WorkSessionController } from './interfaces/rest/work-session.controller';
 import { Mediator } from './shared/mediator';
 import {
   CreateTaskCommand,
@@ -35,6 +37,18 @@ import {
   GetUserStatsHandler
 } from './application/handlers/skills.handler';
 import {
+  StartSessionCommand,
+  StartSessionHandler,
+  StopSessionCommand,
+  StopSessionHandler,
+  GetActiveSessionQuery,
+  GetActiveSessionHandler,
+  ListSessionsQuery,
+  ListSessionsHandler,
+  GetSessionStatsQuery,
+  GetSessionStatsHandler,
+} from './application/handlers/work-sessions.handler';
+import {
   createGlobalApiLimiter,
   createTaskWriteLimiter,
 } from './infrastructure/middleware/rate-limit.middleware';
@@ -59,6 +73,7 @@ export function createApp() {
 
   const repo = new PrismaTaskRepository();
   const skillRepo = new PrismaSkillRepository();
+  const sessionRepo = new PrismaWorkSessionRepository();
   const domain = new TaskDomainService();
   const tokenStore = new TokenStore();
 
@@ -90,6 +105,13 @@ export function createApp() {
   mediator.register(ListSkillsQuery, new ListSkillsHandler(skillRepo));
   mediator.register(GetUserStatsQuery, new GetUserStatsHandler(skillRepo));
 
+  // WorkSession handlers
+  mediator.register(StartSessionCommand, new StartSessionHandler(sessionRepo, repo, skillRepo));
+  mediator.register(StopSessionCommand, new StopSessionHandler(sessionRepo));
+  mediator.register(GetActiveSessionQuery, new GetActiveSessionHandler(sessionRepo));
+  mediator.register(ListSessionsQuery, new ListSessionsHandler(sessionRepo));
+  mediator.register(GetSessionStatsQuery, new GetSessionStatsHandler(sessionRepo));
+
   // ── Middleware ──────────────────────────────────────────
   const globalLimiter = createGlobalApiLimiter();
   const writeLimiter = createTaskWriteLimiter();
@@ -101,9 +123,11 @@ export function createApp() {
   const tasksController = new TaskController(mediator, authMiddleware, writeLimiter);
   const skillsController = new SkillController(mediator, authMiddleware, writeLimiter);
   const notificationController = new NotificationController(mediator, tokenStore);
+  const workSessionController = new WorkSessionController(mediator, authMiddleware, writeLimiter);
   app.use('/api/tasks', tasksController.router);
   app.use('/api/skills', skillsController.router);
   app.use('/api/notifications', notificationController.router);
+  app.use('/api/work-sessions', workSessionController.router);
 
   app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
@@ -116,4 +140,3 @@ export function createApp() {
 
   return app;
 }
-

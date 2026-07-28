@@ -10,7 +10,7 @@ export class Task {
     public description: string | null,
     public status: TaskStatus = 'todo',
     public priority: number = Date.now(),
-    public learningMinutes: number = 0,
+    public estimatedMinutes: number = 0,
     public dueDate: Date = new Date(),
     public skillId: UUID | null = null,
     public readonly createdAt: Date = new Date(),

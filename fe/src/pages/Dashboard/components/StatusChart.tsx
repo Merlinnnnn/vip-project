@@ -5,20 +5,12 @@ import type { TaskStatus } from "../../../types/task";
 
 type StatusStats = Record<TaskStatus, number>;
 
-type TimeStats = {
-  avgHours: number;
-  fastestHours: number;
-  avgOpenDays: number;
-  completedCount: number;
-};
-
 type Props = {
   statusStats: StatusStats;
   tasksLength: number;
-  timeStats: TimeStats;
 };
 
-const StatusChart = ({ statusStats, tasksLength, timeStats }: Props) => {
+const StatusChart = ({ statusStats, tasksLength }: Props) => {
   const statusPieData = useMemo(
     () => ({
       labels: ["Hoàn thành", "Đang làm", "Chờ"],
@@ -47,8 +39,7 @@ const StatusChart = ({ statusStats, tasksLength, timeStats }: Props) => {
   );
 
   return (
-    <>
-      <Card title="Phân bổ trạng thái">
+    <Card title="Phân bổ trạng thái">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
           <div className="min-w-[180px] flex-1">
             <Pie data={statusPieData} options={pieOptions} />
@@ -93,40 +84,7 @@ const StatusChart = ({ statusStats, tasksLength, timeStats }: Props) => {
             })}
           </div>
         </div>
-      </Card>
-
-      <Card title="Thống kê thời gian">
-        <div className="space-y-2 text-sm text-slate-700">
-          <div className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
-            <span className="text-slate-500">Hoàn thành TB</span>
-            <span className="font-semibold text-slate-900">
-              {timeStats.avgHours
-                ? `${timeStats.avgHours.toFixed(1)} giờ`
-                : "Chưa đủ dữ liệu"}
-            </span>
-          </div>
-          <div className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
-            <span className="text-slate-500">Nhanh nhất</span>
-            <span className="font-semibold text-emerald-700">
-              {timeStats.fastestHours
-                ? `${timeStats.fastestHours.toFixed(1)} giờ`
-                : "Chưa đủ dữ liệu"}
-            </span>
-          </div>
-          <div className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
-            <span className="text-slate-500">Tuổi TB task đang mở</span>
-            <span className="font-semibold text-blue-700">
-              {timeStats.avgOpenDays
-                ? `${timeStats.avgOpenDays.toFixed(1)} ngày`
-                : "Chưa đủ dữ liệu"}
-            </span>
-          </div>
-          <p className="text-xs text-slate-400">
-            Dựa trên thời gian created/updated từ API. Cập nhật task để có số liệu chính xác.
-          </p>
-        </div>
-      </Card>
-    </>
+    </Card>
   );
 };
 

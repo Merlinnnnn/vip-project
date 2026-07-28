@@ -3,8 +3,6 @@ import { TaskRepository } from '../../domain/repositories/task.repository';
 import { TaskDomainService } from '../../domain/services/task-domain.service';
 import type { UUID } from '../../shared';
 import { prisma } from './prisma/prisma.client';
-import { appCache, AppCache } from '../cache/app.cache';
-import { Skill } from '../../domain/entities/skill.entity';
 
 /** Shared domain service instance for status enforcement */
 const domainService = new TaskDomainService();
@@ -17,7 +15,7 @@ function mapToDomain(task: any): Task {
     task.description ?? null,
     task.status,
     task.priority,
-    task.learningMinutes ?? 0,
+    task.estimatedMinutes ?? 0,
     task.dueDate,
     task.skillId ?? null,
     task.createdAt,
@@ -52,7 +50,7 @@ export class PrismaTaskRepository extends TaskRepository {
         description: task.description,
         status: task.status,
         priority: nextPriority,
-        learningMinutes: task.learningMinutes,
+        estimatedMinutes: task.estimatedMinutes,
         dueDate: task.dueDate,
         skillId: task.skillId
       } as any
@@ -68,7 +66,7 @@ export class PrismaTaskRepository extends TaskRepository {
         description: task.description,
         status: task.status,
         priority: task.priority,
-        learningMinutes: task.learningMinutes,
+        estimatedMinutes: task.estimatedMinutes,
         dueDate: task.dueDate,
         skillId: task.skillId
       } as any
@@ -77,11 +75,15 @@ export class PrismaTaskRepository extends TaskRepository {
     return mapToDomain(updated);
   }
 
+  /**
+   * Create task with outbox event for due-date scheduling.
+   * NOTE: No longer accumulates estimatedMinutes to Skill.totalMinutes.
+   * Skill time is ONLY accumulated via WorkSession.stop().
+   */
   async createWithOutbox(task: Task): Promise<Task> {
     const nextPriority = await this.getNextPriority(task.userId);
-    
+
     const created = await prisma.$transaction(async (tx) => {
-      // 1. Create the task
       const dbTask = await tx.task.create({
         data: {
           id: task.id,
@@ -90,73 +92,11 @@ export class PrismaTaskRepository extends TaskRepository {
           description: task.description,
           status: task.status,
           priority: nextPriority,
-          learningMinutes: task.learningMinutes,
+          estimatedMinutes: task.estimatedMinutes,
           dueDate: task.dueDate,
           skillId: task.skillId
         } as any
       });
-
-      // 2. Update skill if task.skillId and task.learningMinutes > 0
-      if (task.skillId && task.learningMinutes > 0) {
-        const skillRawBefore = await tx.skill.findFirst({
-          where: { id: task.skillId, userId: task.userId }
-        });
-        if (!skillRawBefore) {
-          throw new Error('Skill not found');
-        }
-        const skillBefore = new Skill(
-          skillRawBefore.id,
-          skillRawBefore.userId,
-          skillRawBefore.name,
-          skillRawBefore.totalMinutes,
-          skillRawBefore.targetMinutes,
-          skillRawBefore.createdAt,
-          skillRawBefore.updatedAt
-        );
-
-        // Update skill
-        await tx.skill.update({
-          where: { id: task.skillId },
-          data: { totalMinutes: { increment: task.learningMinutes } }
-        });
-
-        const skillRawAfter = await tx.skill.findFirst({
-          where: { id: task.skillId, userId: task.userId }
-        });
-        if (!skillRawAfter) {
-          throw new Error('Skill not found after update');
-        }
-        const skillAfter = new Skill(
-          skillRawAfter.id,
-          skillRawAfter.userId,
-          skillRawAfter.name,
-          skillRawAfter.totalMinutes,
-          skillRawAfter.targetMinutes,
-          skillRawAfter.createdAt,
-          skillRawAfter.updatedAt
-        );
-
-        // Invalidate cache
-        await appCache.invalidate(AppCache.skillStatsKey(task.userId));
-
-        // Check level up
-        if (skillAfter.level > skillBefore.level) {
-          await tx.outboxEvent.create({
-            data: {
-              routingKey: 'skill.level_up',
-              payload: {
-                userId: task.userId,
-                skillId: task.skillId,
-                skillName: skillAfter.name,
-                newLevel: skillAfter.level,
-                rank: skillAfter.rank,
-                totalMinutes: skillAfter.totalMinutes,
-                achievedAt: new Date().toISOString(),
-              }
-            }
-          });
-        }
-      }
 
       return dbTask;
     });
@@ -164,13 +104,16 @@ export class PrismaTaskRepository extends TaskRepository {
     return mapToDomain(created);
   }
 
+  /**
+   * Update task with outbox event.
+   * NOTE: No longer adjusts Skill.totalMinutes — that's WorkSession's job.
+   */
   async updateWithOutbox(
     task: Task,
-    previousSkillId: UUID | null,
-    previousMinutes: number
+    _previousSkillId: UUID | null,
+    _previousMinutes: number
   ): Promise<Task> {
     const updated = await prisma.$transaction(async (tx) => {
-      // 1. Update task
       const dbTask = await tx.task.update({
         where: { id: task.id },
         data: {
@@ -178,105 +121,11 @@ export class PrismaTaskRepository extends TaskRepository {
           description: task.description,
           status: task.status,
           priority: task.priority,
-          learningMinutes: task.learningMinutes,
+          estimatedMinutes: task.estimatedMinutes,
           dueDate: task.dueDate,
           skillId: task.skillId
         } as any
       });
-
-      const newSkillId = task.skillId ?? null;
-      const newMinutes = task.learningMinutes ?? 0;
-
-      // Helper function to handle skill level up checking and increment
-      const adjustSkillMinutesAndCheckLevelUp = async (
-        skillId: string,
-        delta: number
-      ) => {
-        if (delta === 0) return;
-        const skillRawBefore = await tx.skill.findFirst({
-          where: { id: skillId, userId: task.userId }
-        });
-        if (!skillRawBefore) {
-          throw new Error('Skill not found');
-        }
-        const skillBefore = new Skill(
-          skillRawBefore.id,
-          skillRawBefore.userId,
-          skillRawBefore.name,
-          skillRawBefore.totalMinutes,
-          skillRawBefore.targetMinutes,
-          skillRawBefore.createdAt,
-          skillRawBefore.updatedAt
-        );
-
-        // Update
-        await tx.skill.update({
-          where: { id: skillId },
-          data: { totalMinutes: { increment: delta } }
-        });
-
-        // Clamp negative to 0 if needed (e.g. if we decremented too much)
-        if (delta < 0) {
-          const updatedRaw = await tx.skill.findFirst({ where: { id: skillId } });
-          if (updatedRaw && updatedRaw.totalMinutes < 0) {
-            await tx.skill.update({
-              where: { id: skillId },
-              data: { totalMinutes: 0 }
-            });
-          }
-        }
-
-        const skillRawAfter = await tx.skill.findFirst({
-          where: { id: skillId, userId: task.userId }
-        });
-        if (!skillRawAfter) {
-          throw new Error('Skill not found after update');
-        }
-        const skillAfter = new Skill(
-          skillRawAfter.id,
-          skillRawAfter.userId,
-          skillRawAfter.name,
-          skillRawAfter.totalMinutes,
-          skillRawAfter.targetMinutes,
-          skillRawAfter.createdAt,
-          skillRawAfter.updatedAt
-        );
-
-        // Invalidate cache
-        await appCache.invalidate(AppCache.skillStatsKey(task.userId));
-
-        // Check if delta was positive and it leveled up
-        if (delta > 0 && skillAfter.level > skillBefore.level) {
-          await tx.outboxEvent.create({
-            data: {
-              routingKey: 'skill.level_up',
-              payload: {
-                userId: task.userId,
-                skillId: skillId,
-                skillName: skillAfter.name,
-                newLevel: skillAfter.level,
-                rank: skillAfter.rank,
-                totalMinutes: skillAfter.totalMinutes,
-                achievedAt: new Date().toISOString(),
-              }
-            }
-          });
-        }
-      };
-
-      if (newSkillId === previousSkillId) {
-        const delta = newMinutes - previousMinutes;
-        if (newSkillId && delta !== 0) {
-          await adjustSkillMinutesAndCheckLevelUp(newSkillId, delta);
-        }
-      } else {
-        if (previousSkillId) {
-          await adjustSkillMinutesAndCheckLevelUp(previousSkillId, -previousMinutes);
-        }
-        if (newSkillId) {
-          await adjustSkillMinutesAndCheckLevelUp(newSkillId, newMinutes);
-        }
-      }
 
       return dbTask;
     });

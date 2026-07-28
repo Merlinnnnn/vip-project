@@ -25,7 +25,7 @@ const TrackingCard = ({ tasks }: Props) => {
             </div>
             <div className="flex items-center gap-2">
               <span className="text-xs font-semibold text-slate-600">
-                {task.learningMinutes ? `${task.learningMinutes}m` : "n/a"}
+                {task.estimatedMinutes ? ` • ${task.estimatedMinutes}m` : "n/a"}
               </span>
               {idx === 0 ? (
                 <button className="rounded-full border border-slate-200 bg-white p-1 hover:bg-slate-100">

@@ -7,7 +7,7 @@ export type TaskUiForm = {
   title: string;
   description: string;
   skillId: string;
-  learningMinutes: number;
+  estimatedMinutes: number;
   dayOption: DayOption;
   notifyOption: NotifyOption;
   // `tags` field đã bị xóa — không có UI nào bind vào và không được gửi lên BE
@@ -34,7 +34,7 @@ const defaultForm: TaskUiForm = {
   title: "",
   description: "",
   skillId: "",
-  learningMinutes: 60,
+  estimatedMinutes: 60,
   dayOption: "today",
   notifyOption: "1h",
 };

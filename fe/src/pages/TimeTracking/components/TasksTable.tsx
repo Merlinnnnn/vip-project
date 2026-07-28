@@ -60,7 +60,7 @@ const TasksTable = ({ tasks, activeTaskId, isLoading, error, onSelectTask }: Pro
                         <span>{statusMeta[task.status].label}</span>
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-slate-600">{task.learningMinutes ?? "-"}</td>
+                    <td className="px-4 py-3 text-slate-600">{task.estimatedMinutes ?? "-"}</td>
                   </tr>
                 );
               })

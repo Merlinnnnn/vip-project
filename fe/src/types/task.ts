@@ -8,7 +8,7 @@ export type Task = {
   status: TaskStatus;
   priority?: number;
   dueDate: string;
-  learningMinutes?: number;
+  estimatedMinutes?: number;
   skillId?: string | null;
   createdAt?: string;
   updatedAt?: string;

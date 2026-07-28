@@ -2,14 +2,14 @@ import { useState, useRef, useEffect } from "react";
 import { Bell, Check, CheckCircle2 } from "lucide-react";
 import { useNotificationStore } from "../../store/useNotificationStore";
 import { useAuth } from "../../context/AuthContext";
-import { useTranslation } from "react-i18next";
+// import { useTranslation } from "react-i18next";
 
 const NotificationCenter = () => {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const { notifications, markAsRead, markAllAsRead, isLoading } = useNotificationStore();
   const { token } = useAuth();
-  const { t } = useTranslation();
+  // const { t } = useTranslation();
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 

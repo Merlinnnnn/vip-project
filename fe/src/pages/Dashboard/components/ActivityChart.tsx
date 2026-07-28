@@ -1,48 +1,76 @@
 import { useMemo } from "react";
 import { Bar } from "react-chartjs-2";
 import Card from "../../../components/ui/Card";
-
-type WeeklyEntry = { label: string; created: number; done: number };
+import type { SessionStats } from "../../../types/work-session";
 
 type Props = {
-  weeklyActivity: WeeklyEntry[];
-  sparklinePoints: string;
+  dailyHeatmap: SessionStats["dailyHeatmap"];
 };
 
-const ActivityChart = ({ weeklyActivity, sparklinePoints }: Props) => {
+const formatDayLabel = (dateStr: string) =>
+  new Intl.DateTimeFormat("vi-VN", {
+    weekday: "short",
+    day: "2-digit",
+    month: "2-digit",
+  }).format(new Date(dateStr));
+
+const ActivityChart = ({ dailyHeatmap }: Props) => {
+  const last7Days = useMemo(() => dailyHeatmap.slice(-7), [dailyHeatmap]);
+
   const barData = useMemo(
     () => ({
-      labels: weeklyActivity.map((d) => d.label),
+      labels: last7Days.map((d) => formatDayLabel(d.date)),
       datasets: [
         {
-          label: "Tạo",
-          data: weeklyActivity.map((d) => d.created),
-          backgroundColor: "rgba(59, 130, 246, 0.6)",
-        },
-        {
-          label: "Hoàn thành",
-          data: weeklyActivity.map((d) => d.done),
-          backgroundColor: "rgba(16, 185, 129, 0.7)",
+          label: "Thời gian làm việc (phút)",
+          data: last7Days.map((d) => d.minutes),
+          backgroundColor: "rgba(16, 185, 129, 0.7)", // emerald-500
+          borderRadius: 4,
         },
       ],
     }),
-    [weeklyActivity],
+    [last7Days],
   );
 
   const barOptions = useMemo(
     () => ({
       responsive: true,
       plugins: {
-        legend: { display: true, position: "top" as const },
+        legend: { display: false },
         title: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(context: any) {
+              const val = context.raw as number;
+              const h = Math.floor(val / 60);
+              const m = val % 60;
+              return h > 0 ? ` ${h}h ${m}m` : ` ${m}m`;
+            }
+          }
+        }
       },
       scales: {
-        x: { stacked: true, grid: { display: false } },
-        y: { stacked: true, ticks: { stepSize: 1 } },
+        x: { grid: { display: false } },
+        y: { beginAtZero: true },
       },
     }),
     [],
   );
+
+  const sparklinePoints = useMemo(() => {
+    const values = dailyHeatmap.map((d) => d.minutes);
+    const width = 140;
+    const height = 50;
+    const max = Math.max(...values, 1);
+    const step = values.length > 1 ? width / (values.length - 1) : 0;
+    return values
+      .map((v, idx) => {
+        const x = idx * step;
+        const y = height - (v / max) * (height - 6) - 3;
+        return `${x},${y}`;
+      })
+      .join(" ");
+  }, [dailyHeatmap]);
 
   return (
     <Card title="Hoạt động 7 ngày">
@@ -50,8 +78,8 @@ const ActivityChart = ({ weeklyActivity, sparklinePoints }: Props) => {
         <Bar data={barData} options={barOptions} className="max-h-72" />
         <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
           <div className="flex items-center justify-between text-xs text-slate-600">
-            <span>Xu hướng hoàn thành</span>
-            <span className="text-emerald-600">7d</span>
+            <span>Xu hướng hoạt động</span>
+            <span className="text-emerald-600">30d</span>
           </div>
           <svg viewBox="0 0 140 50" className="mt-2 h-16 w-full text-emerald-500">
             <polyline

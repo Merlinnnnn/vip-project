@@ -64,6 +64,15 @@ app.use(
   })
 );
 
+app.use(
+  '/work-sessions',
+  createProxyMiddleware({
+    target: 'http://localhost:3001',
+    changeOrigin: true,
+    pathRewrite: { '^/work-sessions': '/api/work-sessions' }
+  })
+);
+
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
 app.listen(PORT, () => {

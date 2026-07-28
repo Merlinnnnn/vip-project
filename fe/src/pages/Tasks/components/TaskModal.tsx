@@ -44,7 +44,7 @@ const TaskModal = ({ onCreated }: Props) => {
     e.preventDefault();
     if (!form.title.trim() || !user) return;
 
-    const duration = ensureDuration(form.learningMinutes);
+    const duration = ensureDuration(form.estimatedMinutes);
     const dueDate = resolveDueDate();
     const sameDayTasks = tasks.filter(
       (t) => (t.dueDate ? parseDateKey(t.dueDate) : null) === dueDate,
@@ -58,7 +58,7 @@ const TaskModal = ({ onCreated }: Props) => {
         status: "todo",
         priority: nextPriority,
         dueDate: dueDate ?? undefined,
-        learningMinutes: duration,
+        estimatedMinutes: duration,
         skillId: form.skillId || null,
       },
       {
@@ -220,15 +220,15 @@ const TaskModal = ({ onCreated }: Props) => {
             <label className="space-y-1 text-xs font-semibold text-slate-600">
               <span className="inline-flex items-center gap-2">
                 <Clock3 size={14} />
-                Duration (minutes)
+                Estimated time (minutes)
               </span>
               <input
                 type="number"
                 min={15}
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:border-amber-400 focus:outline-none"
-                value={form.learningMinutes}
+                value={form.estimatedMinutes}
                 onChange={(e) =>
-                  updateForm({ learningMinutes: Number(e.target.value) || 0 })
+                  updateForm({ estimatedMinutes: Number(e.target.value) || 0 })
                 }
               />
             </label>

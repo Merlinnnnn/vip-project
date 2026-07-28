@@ -6,6 +6,7 @@ import { useTasks } from "../../hooks/useTasks";
 import { useTimerStore } from "../../store/useTimerStore";
 import { useTaskUiStore } from "../../store/useTaskUiStore";
 import type { Task } from "../../types/task";
+import { useActiveSession, useStartSession, useStopSession } from "../../hooks/useWorkSessions";
 import WorkspacePanel from "./components/WorkspacePanel";
 import TasksTable from "./components/TasksTable";
 
@@ -40,7 +41,14 @@ const TimeTrackingPage = () => {
     start,
     pause,
     selectTask,
+    activeSessionId,
+    setActiveSession,
+    syncElapsed,
   } = useTimerStore();
+
+  const { data: activeSession, isFetching: loadingSession } = useActiveSession();
+  const { mutate: startSessionMutate } = useStartSession();
+  const { mutate: stopSessionMutate } = useStopSession();
 
   // ── Derived task lists ────────────────────────────────────────────────────
 
@@ -102,8 +110,29 @@ const TimeTrackingPage = () => {
   useEffect(() => {
     if (activeTaskId || !incompleteTasks.length) return;
     const first = incompleteTasks[0];
-    selectTask({ id: first.id, title: first.title, requiredMinutes: first.learningMinutes ?? 0 });
+    selectTask({ id: first.id, title: first.title, requiredMinutes: first.estimatedMinutes ?? 0 });
   }, [activeTaskId, incompleteTasks, selectTask]);
+
+  // Recover active session from BE
+  useEffect(() => {
+    if (loadingSession) return;
+    if (activeSession) {
+      setActiveSession(activeSession.id, activeSession.startedAt);
+      if (activeSession.taskId && activeSession.taskId !== activeTaskId) {
+        const task = orderedTasks.find((t) => t.id === activeSession.taskId);
+        if (task) {
+          selectTask({ id: task.id, title: task.title, requiredMinutes: task.estimatedMinutes ?? 0 });
+        }
+      }
+      const startMs = new Date(activeSession.startedAt).getTime();
+      const elapsedSecs = Math.floor((Date.now() - startMs) / 1000);
+      syncElapsed(elapsedSecs);
+      if (!isRunning) start();
+    } else if (activeSession === null) {
+      setActiveSession(null);
+      if (isRunning) pause();
+    }
+  }, [activeSession, loadingSession, activeTaskId, orderedTasks, setActiveSession, syncElapsed, isRunning, start, pause, selectTask]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -119,7 +148,8 @@ const TimeTrackingPage = () => {
   };
 
   const handleSelectTask = (task: Task) => {
-    selectTask({ id: task.id, title: task.title, requiredMinutes: task.learningMinutes ?? 0 });
+    if (activeSessionId) return; // Prevent switching tasks while running
+    selectTask({ id: task.id, title: task.title, requiredMinutes: task.estimatedMinutes ?? 0 });
   };
 
   const handleNextTask = () => {
@@ -137,8 +167,36 @@ const TimeTrackingPage = () => {
   };
 
   const handleToggleRun = () => {
-    if (!activeTaskId && incompleteTasks[0]) handleSelectTask(incompleteTasks[0]);
-    if (isRunning) pause(); else start();
+    if (activeSessionId) {
+      // Dừng
+      stopSessionMutate(
+        { id: activeSessionId, input: {} },
+        {
+          onSuccess: () => {
+            setActiveSession(null);
+            pause();
+          },
+        }
+      );
+    } else {
+      // Bắt đầu
+      let taskId = activeTaskId;
+      if (!taskId && incompleteTasks[0]) {
+        handleSelectTask(incompleteTasks[0]);
+        taskId = incompleteTasks[0].id;
+      }
+      if (taskId) {
+        startSessionMutate(
+          { taskId },
+          {
+            onSuccess: (session) => {
+              setActiveSession(session.id, session.startedAt);
+              start();
+            },
+          }
+        );
+      }
+    }
   };
 
   const canNext = useMemo(() => {
