@@ -7,6 +7,7 @@ import SettingsPage from "./pages/Settings/SettingsPage";
 import SkillsPage from "./pages/Skills/SkillsPage";
 import TasksPage from "./pages/Tasks/TasksPage";
 import TimeTrackingPage from "./pages/TimeTracking/TimeTrackingPage";
+import NotFoundPage from "./pages/NotFound/NotFoundPage";
 import { useAuth } from "./context/AuthContext";
 
 const ProtectedShell = () => {
@@ -25,8 +26,6 @@ const ProtectedShell = () => {
 };
 
 const App = () => {
-  const { isAuthenticated } = useAuth();
-
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
@@ -41,7 +40,7 @@ const App = () => {
       </Route>
       <Route
         path="*"
-        element={<Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />}
+        element={<NotFoundPage />}
       />
     </Routes>
   );
